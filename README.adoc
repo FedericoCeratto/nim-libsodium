@@ -1,0 +1,40 @@
+## nim-libsodium
+
+Nim wrapper for the libsodium library
+
+image:https://circleci.com/gh/FedericoCeratto/nim-libsodium.svg?style=shield&circle-token=c35aa4752bfd4ad6402126cae5056168c5268cfe[badge]
+image:https://img.shields.io/badge/status-alpha-orange.svg[badge]
+image:https://img.shields.io/badge/version-0.1.0-orange.svg[badge]
+
+
+WARNING: This library is under development and has not been reviewed by 3rd parties
+
+### Features
+
+* Wrap libsodium and expose only memory-safe entities
+* Follow libsodium naming convention for most functions
+* Tested on Linux
+* Basic unit tests
+* No homemade crypto
+
+### Usage
+
+Refer to the link:https://download.libsodium.org/doc/index.html[official libsodium documentation] 
+
+and the generated documentation for the
+link:https://federicoceratto.github.io/nim-libsodium/docs/0.1.0/sodium.html[sodium]
+and
+link:https://federicoceratto.github.io/nim-libsodium/docs/0.1.0/sodium_sizes.html[sodium_sizes]
+modules
+
+[source,bash]
+----
+sudo apt-get install libsodium18
+nimble install sodium
+----
+
+Import the "sodium" module and, if needed, the "sodium_sizes" module.
+
+### Contributing
+
+Testing and PRs are welcome.
