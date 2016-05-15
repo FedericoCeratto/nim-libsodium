@@ -4,6 +4,13 @@
 # 2016 Federico Ceratto <federico.ceratto@gmail.com>
 # Released under LGPLv3, see LICENSE file
 #
+#
+## Libsodium18 wrapper
+##
+## Memory-unsafe operations are not exposed.
+##
+## Please always refer to libsodium upstream documentation and ensure that you
+## are using the library in a secure way.
 
 {.deadCodeElim: on.}
 
@@ -188,12 +195,12 @@ proc crypto_secretbox_open_easy(
 proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
   ## Decrypt + sign a variable len string with a preshared key
   ## A nonce is expected at the beginning of the input string
-  let nonce_size = crypto_secretbox_NONCEBYTES()
+  let nonce_size = crypto_secretbox_NONCEBYTES().int
   assert key.len == crypto_secretbox_KEYBYTES()
   assert bulk.len >= nonce_size
   let
-    nonce = "" # bulk[0..nonce_size-1]
-    ciphertext = "" # bulk[nonce_size..^1]
+    nonce = bulk[0..nonce_size-1]
+    ciphertext = bulk[nonce_size..^1]
 
   assert nonce.len == nonce_size
   assert bulk.len == nonce_size + ciphertext.len

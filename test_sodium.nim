@@ -9,8 +9,8 @@
 import strutils
 import unittest
 
-import sodium
-import sodium_sizes
+import libsodium.sodium
+import libsodium.sodium_sizes
 
 suite "basics":
 
@@ -65,20 +65,31 @@ suite "basics":
   test "hex2bin":
     discard
 
+suite "authenticated encryption":
 
+  test "crypto_secretbox_easy crypto_secretbox_open_easy":
+    let
+      key = repeat('k', crypto_secretbox_KEYBYTES())
+      msg = "hello there"
+      ciphertext = crypto_secretbox_easy(key, msg)
+      decrypted = crypto_secretbox_open_easy(key, ciphertext)
+    assert msg == decrypted
+
+
+# Public-key authenticated encryption
 suite "crypto_box":
 
   test "crypto_box":
     let
+      msg = "hello and goodbye"
       (pk, sk) = crypto_box_keypair()
       nonce = randombytes(crypto_box_NONCEBYTES())
-      ciphertext = crypto_box_easy("hello", nonce, pk, sk)
-    assert ciphertext.len == 5 + crypto_box_MACBYTES()
+      ciphertext = crypto_box_easy(msg, nonce, pk, sk)
+    assert ciphertext.len == msg.len + crypto_box_MACBYTES()
 
-    # FIXME
-    #let orig = crypto_box_open_easy(ciphertext, nonce, pk, sk)
-    #assert "hello" == orig
-    #let sig = sign(sk, "hello")
+    let orig = crypto_box_open_easy(ciphertext, nonce, pk, sk)
+    assert orig == msg
+    # FIXME let sig = sign(sk, "hello")
     #assert sig.len == 64
 
 
