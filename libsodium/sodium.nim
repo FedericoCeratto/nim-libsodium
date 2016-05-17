@@ -57,7 +57,7 @@ proc randombytes(
 ) {.sodium_import.}
 
 proc randombytes*(size: int): string =
-  result = zeroed size
+  result = newString size
   let o = cpt result
   randombytes(o, csize(size))
   assert result.len == size
@@ -119,7 +119,7 @@ proc sodium_bin2hex(
 ):cint {.sodium_import.}
 
 proc bin2hex*(data: string): string =
-  result = zeroed data.len * 2 + 1
+  result = newString data.len * 2 + 1
   let
     hex = cpt result
     hex_maxlen = cpsize result
@@ -142,7 +142,7 @@ proc sodium_hex2bin(
 
 
 proc hex2bin*(data: string, ignore=""): string =
-  result = zeroed data.len div 2
+  result = newString data.len div 2
   let
     bin = cpt result
     bin_maxlen = cpsize result
@@ -174,7 +174,7 @@ proc crypto_secretbox_easy*(key: string, msg: string): string =
     cnonce = cpt nonce
 
   let
-    ciphertext = zeroed msg.len + crypto_secretbox_MACBYTES()
+    ciphertext = newString msg.len + crypto_secretbox_MACBYTES()
     c_ciphertext = cpt ciphertext
     cmsg = cpt msg
     mlen = cpsize msg
@@ -206,7 +206,7 @@ proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
   assert bulk.len == nonce_size + ciphertext.len
 
   let
-    decrypted = zeroed ciphertext.len - crypto_secretbox_MACBYTES()
+    decrypted = newString ciphertext.len - crypto_secretbox_MACBYTES()
     c_decrypted = cpt decrypted
     c_ciphertext = cpt ciphertext
     ciphertext_len = cpsize ciphertext
@@ -229,7 +229,7 @@ proc crypto_auth(
 ):cint {.sodium_import.}
 
 proc crypto_auth*(message, key: string): string =
-  result = zeroed crypto_auth_BYTES()
+  result = newString crypto_auth_BYTES()
   let
     mac = cpt result
     msg = cpt message
@@ -294,8 +294,8 @@ proc crypto_box_keypair(
 ):cint {.sodium_import.}
 
 proc crypto_box_keypair*(): (CryptoBoxPublicKey, CryptoBoxSecretKey) =
-  result[0] = zeroed crypto_box_PUBLICKEYBYTES()
-  result[1] = zeroed crypto_box_SECRETKEYBYTES()
+  result[0] = newString crypto_box_PUBLICKEYBYTES()
+  result[1] = newString crypto_box_SECRETKEYBYTES()
   let
     pk = cpt result[0]
     sk = cpt result[1]
@@ -314,7 +314,7 @@ proc crypto_box_easy(
 ):cint {.sodium_import.}
 
 proc crypto_box_easy*(message, nonce: string, public_key: CryptoBoxPublicKey, secret_key: CryptoBoxSecretKey): string =
-  result = zeroed message.len + crypto_box_MACBYTES()
+  result = newString message.len + crypto_box_MACBYTES()
   doAssert nonce.len == crypto_box_NONCEBYTES()
   let
     c = cpt result
@@ -337,7 +337,7 @@ proc crypto_box_open_easy(
 
 proc crypto_box_open_easy*(ciphertext, nonce: string, public_key: CryptoBoxPublicKey, secret_key: CryptoBoxSecretKey): string =
   doAssert nonce.len == crypto_box_NONCEBYTES()
-  result = zeroed ciphertext.len - crypto_box_MACBYTES()
+  result = newString ciphertext.len - crypto_box_MACBYTES()
   let
     m = cpt result
     c = cpt ciphertext
@@ -366,7 +366,7 @@ proc crypto_sign_keypair(
 
 proc crypto_sign_keypair*(): (PublicKey, SecretKey) =
   ## Generate a random public and secret key
-  result = (zeroed crypto_sign_PUBLICKEYBYTES(), zeroed crypto_sign_SECRETKEYBYTES())
+  result = (newString crypto_sign_PUBLICKEYBYTES(), newString crypto_sign_SECRETKEYBYTES())
   let
     pk = cpt result[0]
     sk = cpt result[1]
@@ -383,8 +383,8 @@ proc crypto_sign_seed_keypair(
 proc crypto_sign_seed_keypair*(seed: string): (PublicKey, SecretKey) =
   ## Deterministically generate a public and secret key from a seed
   assert seed.len == crypto_sign_SEEDBYTES()
-  result = (zeroed crypto_sign_PUBLICKEYBYTES(),
-            zeroed crypto_sign_SECRETKEYBYTES())
+  result = (newString crypto_sign_PUBLICKEYBYTES(),
+            newString crypto_sign_SECRETKEYBYTES())
   let
     pk = cpt result[0]
     sk = cpt result[1]
@@ -402,7 +402,7 @@ proc crypto_sign_detached(
 ):cint {.sodium_import.}
 
 proc crypto_sign_detached*(secret_key: SecretKey, message: string): string =
-  result = zeroed crypto_sign_BYTES()
+  result = newString crypto_sign_BYTES()
   let
     sk = cpt secret_key
     sig = cpt result
@@ -441,7 +441,7 @@ proc crypto_sign_ed25519_sk_to_seed(
 proc crypto_sign_ed25519_sk_to_seed*(secret_key: SecretKey): string =
   ## Extract the seed from a secret key
   assert secret_key.len == crypto_sign_SECRETKEYBYTES()
-  result = zeroed crypto_sign_SEEDBYTES()
+  result = newString crypto_sign_SEEDBYTES()
   let
     sk = cpt secret_key
     seed = cpt result
@@ -457,7 +457,7 @@ proc crypto_sign_ed25519_sk_to_pk(
 proc crypto_sign_ed25519_sk_to_pk*(secret_key: SecretKey): PublicKey =
   ## Extract the public key from a secret key
   assert secret_key.len == crypto_sign_SECRETKEYBYTES()
-  result = zeroed crypto_sign_PUBLICKEYBYTES()
+  result = newString crypto_sign_PUBLICKEYBYTES()
   let
     sk = cpt secret_key
     pk = cpt result
@@ -479,7 +479,7 @@ proc crypto_box_seal(
 proc crypto_box_seal*(message: string, public_key: PublicKey): string =
   ## Encrypt a message using the receiver public key
   assert public_key.len == crypto_sign_PUBLICKEYBYTES()
-  result = zeroed(message.len + crypto_box_SEALBYTES())
+  result = newString(message.len + crypto_box_SEALBYTES())
   let
     pk = cpt public_key
     msg = cpt message
@@ -501,7 +501,7 @@ proc crypto_box_seal_open*(ciphertext: string, public_key: PublicKey, secret_key
   ## Decrypt a ciphertext using a public and secret key
   assert public_key.len == crypto_sign_PUBLICKEYBYTES()
   assert secret_key.len == crypto_sign_SECRETKEYBYTES()
-  result = zeroed(ciphertext.len - crypto_box_SEALBYTES())
+  result = newString(ciphertext.len - crypto_box_SEALBYTES())
   let
     m = cpt result
     c = cpt ciphertext
@@ -533,7 +533,7 @@ proc crypto_generichash*(data: string, hashlen: int = crypto_generichash_BYTES()
     doAssert(crypto_generichash_KEYBYTES_MIN().int <= key.len)
     doAssert(key.len <= crypto_generichash_KEYBYTES_MAX().int)
 
-  result = zeroed hashlen
+  result = newString hashlen
   let
     h = cpt result
     hlen =
@@ -585,7 +585,7 @@ proc new_generic_hash*(key: string, out_len: int = crypto_generichash_BYTES().in
   doAssert crypto_generichash_BYTES_MIN().int <= out_len
   doAssert out_len <= crypto_generichash_BYTES_MAX().int
 
-  result = (zeroed crypto_generichash_statebytes(), out_len)
+  result = (newString crypto_generichash_statebytes(), out_len)
   let
     state = cpt result.state
     k =
@@ -607,7 +607,7 @@ proc update*(self: GenericHash, data: string) =
 
 proc finalize*(self: GenericHash): string =
   ## Finish the multipart hash and return the hash value as a string
-  result = zeroed self.out_len
+  result = newString self.out_len
   let
     s = cpt self.state
     h = cpt result
@@ -632,7 +632,7 @@ proc crypto_shorthash(
 proc crypto_shorthash*(data: string, key: ShortHashKey): string =
   ## Hash optimized for short inputs
   doAssert key.len == crypto_shorthash_KEYBYTES()
-  result = zeroed crypto_shorthash_BYTES()
+  result = newString crypto_shorthash_BYTES()
   let
     o = cpt result
     d = cpt data
@@ -656,7 +656,7 @@ proc crypto_scalarmult_base(
 
 proc crypto_scalarmult_base*(secret_key: string): string =
   assert secret_key.len == crypto_scalarmult_SCALARBYTES()
-  result = zeroed crypto_scalarmult_BYTES()
+  result = newString crypto_scalarmult_BYTES()
   let
     q = cpt result
     n = cpt secret_key
@@ -676,7 +676,7 @@ proc crypto_scalarmult*(secret_key, public_key: string): string =
   ## a hash of the shared secred concatenated with the public keys from both users
   assert secret_key.len == crypto_scalarmult_SCALARBYTES()
   assert public_key.len == crypto_scalarmult_BYTES()
-  result = zeroed crypto_scalarmult_BYTES()
+  result = newString crypto_scalarmult_BYTES()
   let
     q = cpt result  # output
     n = cpt secret_key  # secret key
@@ -698,7 +698,7 @@ proc crypto_onetimeauth*(message, key: string): string =
   ## One-time authentication using Poly1305
   ## Warning: Use unpredictable, secret, unique keys
   assert key.len == crypto_onetimeauth_KEYBYTES()
-  result = zeroed crypto_onetimeauth_BYTES()
+  result = newString crypto_onetimeauth_BYTES()
   let
     o = cpt result
     msg = cpt message
