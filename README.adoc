@@ -30,10 +30,21 @@ modules
 [source,bash]
 ----
 sudo apt-get install libsodium18
-nimble install sodium
+nimble install libsodium
 ----
 
-Import the "sodium" module and, if needed, the "sodium_sizes" module.
+[source,nim]
+----
+import libsodium.sodium
+import libsodium.sodium_sizes
+
+let 
+  msg = "hello and goodbye" 
+  (pk, sk) = crypto_box_keypair() 
+  nonce = randombytes(crypto_box_NONCEBYTES()) 
+  ciphertext = crypto_box_easy(msg, nonce, pk, sk) 
+
+----
 
 ### Contributing
 
