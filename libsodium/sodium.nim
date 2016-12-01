@@ -18,7 +18,13 @@ import strutils
 
 import sodium_sizes
 
-const libsodium_fn* = "libsodium.so.18"
+when defined(windows):
+  const libsodium_fn* = "libsodium.dll"
+elif defined(macosx):
+  const libsodium_fn* = "libsodium.dylib"
+else:
+  const libsodium_fn* = "libsodium.so.18"
+
 
 {.pragma: sodium_import, importc, dynlib: libsodium_fn.}
 
