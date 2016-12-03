@@ -216,8 +216,8 @@ proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
     c_decrypted = cpt decrypted
     c_ciphertext = cpt ciphertext
     ciphertext_len = cpsize ciphertext
-    cnonce = cpt nonce
-    ckey = cpt key
+    c_nonce = cpt nonce
+    c_key = cpt key
   let rc = crypto_secretbox_open_easy(c_decrypted, c_ciphertext, ciphertext_len, c_nonce, c_key)
   check_rc rc
 
