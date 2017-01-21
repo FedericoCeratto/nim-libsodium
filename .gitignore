@@ -1,1 +1,4 @@
 nimcache/
+libsodium/sodium
+libsodium/sodium_sizes
+test_sodium
