@@ -12,6 +12,13 @@ import unittest
 import libsodium.sodium
 import libsodium.sodium_sizes
 
+proc fill[I](arr: var array[I, char], c: char) =
+  for i in low(arr)..high(arr): arr[i] = c
+
+proc arrayFromString[I](arr: var array[I, char], str: string) =
+  for i in low(arr)..min(high(arr), high(str)):
+    arr[i] = str[i]
+
 suite "basics":
 
   test "zeroed":
@@ -50,15 +57,18 @@ suite "basics":
     assert r.len == 8
 
   test "auth":
-    let
-      key = repeat('k', crypto_auth_KEYBYTES())
-      mac = crypto_auth("hello", key)
-    assert mac.len == crypto_auth_BYTES()
+    var
+      key, key_bogus: AuthKey
+
+    fill key, 'k'
+    fill key_bogus, 'b'
+
+    let mac = crypto_auth("hello", key)
+    var mac_bogus: AuthTag
+
     assert crypto_auth_verify(mac, "hello", key)
     assert crypto_auth_verify(mac, "hallo", key) == false
-    let mac_bogus = zeroed crypto_auth_BYTES()
     assert crypto_auth_verify(mac_bogus, "hello", key) == false
-    let key_bogus = repeat('b', crypto_auth_KEYBYTES())
     assert crypto_auth_verify(mac, "hello", key_bogus) == false
 
 
@@ -67,9 +77,22 @@ suite "basics":
 
 suite "authenticated encryption":
 
-  test "crypto_secretbox_easy crypto_secretbox_open_easy":
+  test "crypto_secretbox_easy crypto_secretbox_open_easy with nonce":
+    var
+      key: SecretBoxKey
+      nonce: SecretBoxNonce
+    randombytes nonce
+    fill key, 'k'
     let
-      key = repeat('k', crypto_secretbox_KEYBYTES())
+      msg = "hello there"
+      ciphertext = crypto_secretbox_easy(key, nonce, msg)
+      decrypted = crypto_secretbox_open_easy(key, nonce, ciphertext)
+    assert msg == decrypted
+
+  test "crypto_secretbox_easy crypto_secretbox_open_easy":
+    var key: SecretBoxKey
+    fill key, 'k'
+    let
       msg = "hello there"
       ciphertext = crypto_secretbox_easy(key, msg)
       decrypted = crypto_secretbox_open_easy(key, ciphertext)
@@ -80,12 +103,13 @@ suite "authenticated encryption":
 suite "crypto_box":
 
   test "crypto_box":
+    var nonce: BoxNonce
+    randombytes nonce
     let
       msg = "hello and goodbye"
       (pk, sk) = crypto_box_keypair()
-      nonce = randombytes(crypto_box_NONCEBYTES())
       ciphertext = crypto_box_easy(msg, nonce, pk, sk)
-    assert ciphertext.len == msg.len + crypto_box_MACBYTES()
+    assert ciphertext.len == msg.len + crypto_box_MACBYTES
 
     let orig = crypto_box_open_easy(ciphertext, nonce, pk, sk)
     assert orig == msg
@@ -96,16 +120,17 @@ suite "crypto_box":
 suite "public-key signatures":
 
   setup:
+    var seed: SignSeed
+    fill seed, 's'
     let
-      seed = repeat('s', crypto_sign_SEEDBYTES())
       (pk, sk) = crypto_sign_seed_keypair(seed)
-    assert pk.len == crypto_sign_PUBLICKEYBYTES()
-    assert sk.len == crypto_sign_SECRETKEYBYTES()
+    assert pk.len == crypto_sign_PUBLICKEYBYTES
+    assert sk.len == crypto_sign_SECRETKEYBYTES
 
   test "real keypair":
     let (real_pk, real_sk) = crypto_sign_keypair()
-    assert real_pk.len == crypto_sign_PUBLICKEYBYTES()
-    assert real_sk.len == crypto_sign_SECRETKEYBYTES()
+    assert real_pk.len == crypto_sign_PUBLICKEYBYTES
+    assert real_sk.len == crypto_sign_SECRETKEYBYTES
 
   test "extract seed from secret key":
     assert crypto_sign_ed25519_sk_to_seed(sk) == seed
@@ -115,15 +140,15 @@ suite "public-key signatures":
 
   test "sign":
     let sig = crypto_sign_detached(sk, "hello")
-    assert sig.len == crypto_sign_BYTES()
+    assert sig.len == crypto_sign_BYTES
 
   test "verify":
     let signature = crypto_sign_detached(sk, "hello")
     checkpoint "verify signature"
-    crypto_sign_verify_detached(pk, "hello", signature)
-    checkpoint "verify signature, expect SodiumError"
-    expect SodiumError:
-      crypto_sign_verify_detached(pk, "hello", signature[0..^2] & "X")
+    assert crypto_sign_verify_detached(pk, "hello", signature)
+
+    var bogus: SignDetached
+    assert crypto_sign_verify_detached(pk, "hello", bogus) == false
 
   # Sealed boxes
 
@@ -131,14 +156,14 @@ suite "public-key signatures":
     let
       msg = "4242424242424242424242"
       sealed = crypto_box_seal(msg, pk)
-    assert sealed.len == msg.len + crypto_box_SEALBYTES()
+    assert sealed.len == msg.len + crypto_box_SEALBYTES
 
   test "crypto_box_seal_open":
     checkpoint "seal"
     let
       msg = "123456789"
       sealed = crypto_box_seal(msg, pk)
-    assert sealed.len == msg.len + crypto_box_SEALBYTES()
+    assert sealed.len == msg.len + crypto_box_SEALBYTES
     checkpoint "open"
     # FIXME
     #let opened = crypto_box_seal_open(sealed, pk, sk)
@@ -149,10 +174,10 @@ suite "hashing":
 
   test "generic hashing":
     let h = crypto_generichash("hello")
-    assert h.len == crypto_generichash_BYTES()
+    assert h.len == crypto_generichash_BYTES
 
   test "generic multipart hashing":
-    let ha = new_generic_hash(repeat('k', crypto_generichash_KEYBYTES()))
+    let ha = new_generic_hash(repeat('k', crypto_generichash_KEYBYTES))
     for x in 0..100:
       let ha_old = ha
       ha.update("hello")
@@ -176,9 +201,9 @@ suite "hashing":
     expect AssertionError:
       let ha = new_generic_hash(zeroed 999)
     expect AssertionError:
-      let ha = new_generic_hash(zeroed crypto_generichash_KEYBYTES(), 3)
+      let ha = new_generic_hash(zeroed crypto_generichash_KEYBYTES, 3)
     expect AssertionError:
-      let ha = new_generic_hash(zeroed crypto_generichash_KEYBYTES(), 9999)
+      let ha = new_generic_hash(zeroed crypto_generichash_KEYBYTES, 9999)
 
   test "shorthash":
     let
@@ -189,41 +214,46 @@ suite "hashing":
       h_using_k2 = crypto_shorthash("hello", k2)
     assert h == h2
     assert h != h_using_k2
-    assert k.len == crypto_shorthash_KEYBYTES()
-    assert h.len == crypto_shorthash_BYTES()
+    assert k.len == crypto_shorthash_KEYBYTES
+    assert h.len == crypto_shorthash_BYTES
 
 test "Diffie-Hellman function":
 
   test "scalarmult base":
+    var secret_key: BoxSecretKey
+    fill secret_key, 'k'
     let
-      secret_key = repeat('k', crypto_scalarmult_SCALARBYTES())
       public_key = crypto_scalarmult_base(secret_key)
-    assert public_key == hex2bin "8462fb3f0798f9fe2c39f3823bb41cd3effe70bb5c81735be46a143135c58454"
+    assert bin2hex(public_key) == "8462fb3f0798f9fe2c39f3823bb41cd3effe70bb5c81735be46a143135c58454"
 
   test "scalarmult":
+    var secret_key1, secret_key2: BoxSecretKey
+    fill secret_key1, 'k'
+    fill secret_key2, 'z'
     let
-      secret_key1 = repeat('k', crypto_scalarmult_SCALARBYTES())
       public_key1 = crypto_scalarmult_base(secret_key1)
-      secret_key2 = repeat('z', crypto_scalarmult_SCALARBYTES())
       public_key2 = crypto_scalarmult_base(secret_key2)
       shared_secret12 = crypto_scalarmult(secret_key1, public_key2)
       shared_secret21 = crypto_scalarmult(secret_key2, public_key1)
-    assert shared_secret12.bin2hex() == "806b0dffd3436ce81b12c4283db697bcfaab98571910ad33d3f385ec5409c009"
+    assert bin2hex(shared_secret12) == "806b0dffd3436ce81b12c4283db697bcfaab98571910ad33d3f385ec5409c009"
     assert shared_secret12 == shared_secret21
 
 test "poly1305 onetimeauth":
+  var
+    key, bogus_key: OneTimeAuthKey
+    bogus_tok: OneTimeAuthTag
+  fill key, 'k'
+  fill bogus_key, 'x'
+  fill bogus_tok, 'z'
   let
     msg = repeat('m', 33)
-    key = repeat('k', crypto_onetimeauth_KEYBYTES())
     tok = crypto_onetimeauth(msg, key)
     ok = crypto_onetimeauth_verify(tok, msg, key)
   assert ok
-  assert tok.len == crypto_onetimeauth_BYTES()
+  assert tok.len == crypto_onetimeauth_BYTES
 
   let bogus_msg = repeat('m', 32)
   assert crypto_onetimeauth_verify(tok, bogus_msg, key) == false
-  let bogus_tok = repeat('z', crypto_onetimeauth_BYTES())
   assert crypto_onetimeauth_verify(bogus_tok, msg, key) == false
-  let bogus_key = repeat('x', crypto_onetimeauth_KEYBYTES())
   assert crypto_onetimeauth_verify(tok, msg, bogus_key) == false
 

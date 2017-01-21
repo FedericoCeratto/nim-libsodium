@@ -31,20 +31,25 @@ else:
 
 # helpers
 
-
-template cpt(target: string): expr =
+template cpt[I](target: array[I, char]): ptr cuchar =
   cast[ptr cuchar](cstring(target))
 
-template cpsize(target: string): expr =
+template cpt(target: string): ptr cuchar =
+  cast[ptr cuchar](cstring(target))
+
+template cpsize[I](target: array[I, char]): csize =
   csize(target.len)
 
-template zeroed*(length: int): expr =
+template cpsize(target: string): csize =
+  csize(target.len)
+
+template zeroed*(length: int): string =
   ## Return a zeroed string
   repeat('\0', length)
 
 type SodiumError* = object of Exception
 
-template check_rc(rc: cint): expr =
+template check_rc(rc: cint) =
   ## Expect return code to be 0, raise an exception otherwise
   if rc != 0:
     raise newException(SodiumError, "return code: $#" % $rc)
@@ -57,7 +62,7 @@ template check_rc(rc: cint): expr =
 # https://download.libsodium.org/doc/generating_random_data/index.html
 
 
-proc randombytes(
+proc randombytes_buf(
   buf: ptr cuchar,
   size: csize,
 ) {.sodium_import.}
@@ -65,8 +70,10 @@ proc randombytes(
 proc randombytes*(size: int): string =
   result = newString size
   let o = cpt result
-  randombytes(o, csize(size))
-  assert result.len == size
+  randombytes_buf(o, csize(size))
+
+proc randombytes*[I](arr: var array[I, char]) =
+  randombytes_buf(cpt arr, len(arr))
 
 proc randombytes_stir*() {.sodium_import.}
   ## Reseeds the pseudorandom number generator - if supported.
@@ -95,13 +102,6 @@ proc memcmp*(a, b: string): bool =
     rc = sodium_memcmp(b1, b2, blen)
   return rc == 0
 
-# Not exposed
-proc sodium_compare(
-  b1: ptr cuchar,
-  b2: ptr cuchar,
-  blen: csize,
-):cint {.sodium_import.}
-
 proc sodium_is_zero(
   n: ptr cuchar,
   n_len: csize,
@@ -123,6 +123,16 @@ proc sodium_bin2hex(
   bin: ptr cuchar,
   bin_len: csize,
 ):cint {.sodium_import.}
+
+proc bin2hex*[I](data: array[I, char]): string =
+  result = newString data.len * 2 + 1
+  let
+    hex = cpt result
+    hex_maxlen = cpsize result
+    bin = cpt data
+    bin_len = cpsize data
+  discard sodium_bin2hex(hex, hex_maxlen, bin, bin_len)
+  result = result[0..(data.len * 2 - 1)]
 
 proc bin2hex*(data: string): string =
   result = newString data.len * 2 + 1
@@ -158,9 +168,19 @@ proc hex2bin*(data: string, ignore=""): string =
   discard sodium_hex2bin(bin, bin_maxlen, hex, hex_len, ig, nil, nil)
 
 
+type
+  Ed25519Pk* = array[crypto_sign_ed25519_PUBLICKEYBYTES, char]
+  Ed25519Sk* = array[crypto_sign_ed25519_SECRETKEYBYTES, char]
+  Curve25519Pk* = array[crypto_scalarmult_curve25519_BYTES, char]
+  Curve25519Sk* = array[crypto_scalarmult_curve25519_BYTES, char]
+
+
 # Authenticated encryption
 # https://download.libsodium.org/doc/secret-key_cryptography/authenticated_encryption.html
 
+type
+  SecretBoxKey*   = array[crypto_secretbox_KEYBYTES, char]
+  SecretBoxNonce* = array[crypto_secretbox_NONCEBYTES, char]
 
 proc crypto_secretbox_easy(
   c: ptr cuchar,
@@ -170,17 +190,30 @@ proc crypto_secretbox_easy(
   k: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_secretbox_easy*(key: string, msg: string): string =
+proc crypto_secretbox_easy*(key: SecretBoxKey,
+                            nonce: SecretBoxNonce,
+                            msg: string): string =
+  ## Encrypt + sign a variable len string with a preshared key
+  result = newString msg.len + crypto_secretbox_MACBYTES
+  let
+    c_ciphertext = cpt result
+    cmsg = cpt msg
+    mlen = cpsize msg
+    cnon = cpt nonce
+    ckey = cpt key
+  let rc = crypto_secretbox_easy(c_ciphertext, cmsg, mlen, cnon, ckey)
+  check_rc rc
+
+proc crypto_secretbox_easy*(key: SecretBoxKey, msg: string): string =
   ## Encrypt + sign a variable len string with a preshared key
   ## A random nonce is generated from /dev/urandom and prepended to the output
 
-  assert key.len == crypto_secretbox_KEYBYTES()
-  let nonce = randombytes(crypto_secretbox_NONCEBYTES().int)
+  let nonce = randombytes(crypto_secretbox_NONCEBYTES)
   var
     cnonce = cpt nonce
 
   let
-    ciphertext = newString msg.len + crypto_secretbox_MACBYTES()
+    ciphertext = newString msg.len + crypto_secretbox_MACBYTES
     c_ciphertext = cpt ciphertext
     cmsg = cpt msg
     mlen = cpsize msg
@@ -198,11 +231,32 @@ proc crypto_secretbox_open_easy(
   k: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
+proc crypto_secretbox_open_easy*(key: SecretBoxKey,
+                                 nonce: SecretBoxNonce,
+                                 ciphertext: string): string =
+  ## Decrypt + sign a variable len string with a preshared key
+  assert ciphertext.len > crypto_secretbox_MACBYTES
+  result = newString ciphertext.len - crypto_secretbox_MACBYTES
+  let
+    c_decrypted = cpt result
+    c_ciphertext = cpt ciphertext
+    ciphertext_len = cpsize ciphertext
+    c_nonce = cpt nonce
+    c_key = cpt key
+  let rc = crypto_secretbox_open_easy(
+    c_decrypted,
+    c_ciphertext,
+    ciphertext_len,
+    c_nonce,
+    c_key
+  )
+  if rc != 0:
+    return nil
+
+proc crypto_secretbox_open_easy*(key: SecretBoxKey, bulk: string): string =
   ## Decrypt + sign a variable len string with a preshared key
   ## A nonce is expected at the beginning of the input string
-  let nonce_size = crypto_secretbox_NONCEBYTES().int
-  assert key.len == crypto_secretbox_KEYBYTES()
+  let nonce_size = crypto_secretbox_NONCEBYTES
   assert bulk.len >= nonce_size
   let
     nonce = bulk[0..nonce_size-1]
@@ -211,9 +265,9 @@ proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
   assert nonce.len == nonce_size
   assert bulk.len == nonce_size + ciphertext.len
 
+  result = newString ciphertext.len - crypto_secretbox_MACBYTES
   let
-    decrypted = newString ciphertext.len - crypto_secretbox_MACBYTES()
-    c_decrypted = cpt decrypted
+    c_decrypted = cpt result
     c_ciphertext = cpt ciphertext
     ciphertext_len = cpsize ciphertext
     c_nonce = cpt nonce
@@ -221,11 +275,13 @@ proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
   let rc = crypto_secretbox_open_easy(c_decrypted, c_ciphertext, ciphertext_len, c_nonce, c_key)
   check_rc rc
 
-  return decrypted
-
 
 # Secret-key authentication
 # https://download.libsodium.org/doc/secret-key_cryptography/secret-key_authentication.html
+
+type
+  AuthKey* = array[crypto_auth_KEYBYTES, char]
+  AuthTag* = array[crypto_auth_BYTES, char]
 
 proc crypto_auth(
   mac: ptr cuchar,
@@ -234,8 +290,7 @@ proc crypto_auth(
   key: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_auth*(message, key: string): string =
-  result = newString crypto_auth_BYTES()
+proc crypto_auth*(message: string, key: AuthKey): AuthTag =
   let
     mac = cpt result
     msg = cpt message
@@ -252,15 +307,16 @@ proc crypto_auth_verify(
   key: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_auth_verify*(mac, message, key: string): bool =
+proc crypto_auth_verify*(mac: AuthTag,
+                         message: string,
+                         key: AuthKey): bool =
   let
     tag = cpt mac
     msg = cpt message
     msg_len = cpsize message
     k = cpt key
     rc = crypto_auth_verify(tag, msg, msg_len, k)
-
-  return rc == 0
+  rc == 0
 
 # https://download.libsodium.org/doc/secret-key_cryptography/aead.html
 # https://download.libsodium.org/doc/secret-key_cryptography/original_chacha20-poly1305_construction.html
@@ -269,29 +325,16 @@ proc crypto_auth_verify*(mac, message, key: string): bool =
 #
 # https://download.libsodium.org/doc/secret-key_cryptography/aes-gcm_with_precomputation.html
 
-# https://download.libsodium.org/doc/public-key_cryptography/authenticated_encryption.html
-
-
-proc verify_message*(key: string, msg: string, signature: string) =
-  ## verify a message signed using ed25519
-  ## if the signature is not provided, it is assumed that it is found at the
-  ## beginning of the message
-
-
-proc sign_message*(key, message: string): string =
-  ## sign a message using ed25519
-
 
 # Public-key authenticated encryption
 # https://download.libsodium.org/doc/public-key_cryptography/authenticated_encryption.html
 
 
 type
-  CryptoBoxPublicKey = string
-  CryptoBoxSecretKey = string
-
-template cpt(target: CryptoBoxPublicKey): expr =
-  cast[ptr cuchar](cstring(target))
+  BoxPublicKey* = array[crypto_box_PUBLICKEYBYTES, char]
+  BoxSecretKey* = array[crypto_box_SECRETKEYBYTES, char]
+  BoxNonce* = array[crypto_box_NONCEBYTES, char]
+  BoxSeed* = array[crypto_box_SEEDBYTES, char]
 
 
 proc crypto_box_keypair(
@@ -299,16 +342,42 @@ proc crypto_box_keypair(
   sk: ptr cuchar
 ):cint {.sodium_import.}
 
-proc crypto_box_keypair*(): (CryptoBoxPublicKey, CryptoBoxSecretKey) =
-  result[0] = newString crypto_box_PUBLICKEYBYTES()
-  result[1] = newString crypto_box_SECRETKEYBYTES()
+proc crypto_box_keypair*(): (BoxPublicKey, BoxSecretKey) =
   let
     pk = cpt result[0]
     sk = cpt result[1]
   let rc = crypto_box_keypair(pk, sk)
   check_rc rc
 
-#TODO crypto_box_seed_keypair crypto_scalarmult_base
+
+proc crypto_box_seed_keypair(
+  pk: ptr cuchar,
+  sk: ptr cuchar,
+  seed: ptr cuchar
+):cint {.sodium_import.}
+
+proc crypto_box_seed_keypair*(seed: BoxSeed):
+                             (BoxPublicKey, BoxSecretKey) =
+  let
+    pk = cpt result[0]
+    sk = cpt result[1]
+    seed = cpt seed
+  let rc = crypto_box_seed_keypair(pk, sk, seed)
+  check_rc rc
+
+
+proc crypto_scalarmult_base(
+  pk: ptr cuchar,
+  sk: ptr cuchar
+):cint {.sodium_import.}
+
+proc crypto_scalarmult_base*(secret: BoxSecretKey): BoxPublicKey =
+  let
+    pk = cpt result
+    sk = cpt secret
+  let rc = crypto_scalarmult_base(pk, sk)
+  check_rc rc
+
 
 proc crypto_box_easy(
   c: ptr cuchar,
@@ -319,9 +388,11 @@ proc crypto_box_easy(
   sk: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_box_easy*(message, nonce: string, public_key: CryptoBoxPublicKey, secret_key: CryptoBoxSecretKey): string =
-  result = newString message.len + crypto_box_MACBYTES()
-  doAssert nonce.len == crypto_box_NONCEBYTES()
+proc crypto_box_easy*(message: string,
+                      nonce: BoxNonce,
+                      public_key: BoxPublicKey,
+                      secret_key: BoxSecretKey): string =
+  result = newString message.len + crypto_box_MACBYTES
   let
     c = cpt result
     m = cpt message
@@ -332,6 +403,7 @@ proc crypto_box_easy*(message, nonce: string, public_key: CryptoBoxPublicKey, se
     rc = crypto_box_easy(c, m, mlen, n, pk, sk)
   check_rc rc
 
+
 proc crypto_box_open_easy(
   c: ptr cuchar,
   m: ptr cuchar,
@@ -341,9 +413,11 @@ proc crypto_box_open_easy(
   sk: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_box_open_easy*(ciphertext, nonce: string, public_key: CryptoBoxPublicKey, secret_key: CryptoBoxSecretKey): string =
-  doAssert nonce.len == crypto_box_NONCEBYTES()
-  result = newString ciphertext.len - crypto_box_MACBYTES()
+proc crypto_box_open_easy*(ciphertext: string,
+                           nonce: BoxNonce,
+                           public_key: BoxPublicKey,
+                           secret_key: BoxSecretKey): string =
+  result = newString ciphertext.len - crypto_box_MACBYTES
   let
     m = cpt result
     c = cpt ciphertext
@@ -351,8 +425,9 @@ proc crypto_box_open_easy*(ciphertext, nonce: string, public_key: CryptoBoxPubli
     n = cpt nonce
     pk = cpt public_key
     sk = cpt secret_key
-    rc = crypto_box_open_easy(m, c, clen, n, pk, sk)
-  check_rc rc
+  let rc = crypto_box_open_easy(m, c, clen, n, pk, sk)
+  if rc != 0:
+    result = nil
 
 
 
@@ -360,19 +435,20 @@ proc crypto_box_open_easy*(ciphertext, nonce: string, public_key: CryptoBoxPubli
 # https://download.libsodium.org/doc/public-key_cryptography/public-key_signatures.html
 
 
-
 type
-  PublicKey = string
-  SecretKey = string
+  SignPublicKey* = array[crypto_sign_PUBLICKEYBYTES, char]
+  SignSecretKey* = array[crypto_sign_SECRETKEYBYTES, char]
+  SignDetached* = array[crypto_sign_BYTES, char]
+  SignSeed* = array[crypto_sign_SEEDBYTES, char]
+
 
 proc crypto_sign_keypair(
   pk: ptr cuchar,
   sk: ptr cuchar
 ):cint {.sodium_import.}
 
-proc crypto_sign_keypair*(): (PublicKey, SecretKey) =
+proc crypto_sign_keypair*(): (SignPublicKey, SignSecretKey) =
   ## Generate a random public and secret key
-  result = (newString crypto_sign_PUBLICKEYBYTES(), newString crypto_sign_SECRETKEYBYTES())
   let
     pk = cpt result[0]
     sk = cpt result[1]
@@ -386,11 +462,9 @@ proc crypto_sign_seed_keypair(
   seed: ptr cuchar
 ):cint {.sodium_import.}
 
-proc crypto_sign_seed_keypair*(seed: string): (PublicKey, SecretKey) =
+proc crypto_sign_seed_keypair*(seed: SignSeed):
+                              (SignPublicKey, SignSecretKey) =
   ## Deterministically generate a public and secret key from a seed
-  assert seed.len == crypto_sign_SEEDBYTES()
-  result = (newString crypto_sign_PUBLICKEYBYTES(),
-            newString crypto_sign_SECRETKEYBYTES())
   let
     pk = cpt result[0]
     sk = cpt result[1]
@@ -407,8 +481,8 @@ proc crypto_sign_detached(
    sk: ptr cuchar
 ):cint {.sodium_import.}
 
-proc crypto_sign_detached*(secret_key: SecretKey, message: string): string =
-  result = newString crypto_sign_BYTES()
+proc crypto_sign_detached*(secret_key: SignSecretKey,
+                           message: string): SignDetached =
   let
     sk = cpt secret_key
     sig = cpt result
@@ -417,7 +491,6 @@ proc crypto_sign_detached*(secret_key: SecretKey, message: string): string =
 
   let rc = crypto_sign_detached(sig, nil, msg, msg_len, sk)
   check_rc rc
-  assert result.len == crypto_sign_BYTES()
 
 
 proc crypto_sign_verify_detached(
@@ -427,16 +500,16 @@ proc crypto_sign_verify_detached(
   pk: ptr cuchar
 ):cint {.sodium_import.}
 
-proc crypto_sign_verify_detached*(public_key: PublicKey, message, signature: string) =
-  assert signature.len == crypto_sign_BYTES()
-  assert public_key.len == crypto_sign_PUBLICKEYBYTES()
+proc crypto_sign_verify_detached*(public_key: SignPublicKey,
+                                  message: string,
+                                  signature: SignDetached): bool =
   let
     pk = cpt public_key
     sig = cpt signature
     msg = cpt message
     msg_len = cpsize message
   let rc = crypto_sign_verify_detached(sig, msg, msg_len, pk)
-  check_rc rc
+  rc == 0
 
 
 proc crypto_sign_ed25519_sk_to_seed(
@@ -444,10 +517,9 @@ proc crypto_sign_ed25519_sk_to_seed(
   sk: ptr cuchar
 ):cint {.sodium_import.}
 
-proc crypto_sign_ed25519_sk_to_seed*(secret_key: SecretKey): string =
+proc crypto_sign_ed25519_sk_to_seed*(secret_key: SignSecretKey):
+                                    SignSeed =
   ## Extract the seed from a secret key
-  assert secret_key.len == crypto_sign_SECRETKEYBYTES()
-  result = newString crypto_sign_SEEDBYTES()
   let
     sk = cpt secret_key
     seed = cpt result
@@ -460,10 +532,9 @@ proc crypto_sign_ed25519_sk_to_pk(
   sk: ptr cuchar
 ):cint {.sodium_import.}
 
-proc crypto_sign_ed25519_sk_to_pk*(secret_key: SecretKey): PublicKey =
+proc crypto_sign_ed25519_sk_to_pk*(secret_key: SignSecretKey):
+                                  SignPublicKey =
   ## Extract the public key from a secret key
-  assert secret_key.len == crypto_sign_SECRETKEYBYTES()
-  result = newString crypto_sign_PUBLICKEYBYTES()
   let
     sk = cpt secret_key
     pk = cpt result
@@ -482,17 +553,18 @@ proc crypto_box_seal(
   pk: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_box_seal*(message: string, public_key: PublicKey): string =
+proc crypto_box_seal*(message: string,
+                      public_key: BoxPublicKey): string =
   ## Encrypt a message using the receiver public key
-  assert public_key.len == crypto_sign_PUBLICKEYBYTES()
-  result = newString(message.len + crypto_box_SEALBYTES())
+  result = newString(message.len + crypto_box_SEALBYTES)
   let
     pk = cpt public_key
     msg = cpt message
     msg_len = cpsize message
     c = cpt result
     rc = crypto_box_seal(c, msg, msg_len, pk)
-  check_rc rc
+  if rc != 0:
+    result = nil
 
 
 proc crypto_box_seal_open(
@@ -503,11 +575,12 @@ proc crypto_box_seal_open(
   sk: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_box_seal_open*(ciphertext: string, public_key: PublicKey, secret_key: SecretKey): string =
+proc crypto_box_seal_open*(ciphertext: string,
+                           public_key: BoxPublicKey,
+                           secret_key: BoxSecretKey): string =
   ## Decrypt a ciphertext using a public and secret key
-  assert public_key.len == crypto_sign_PUBLICKEYBYTES()
-  assert secret_key.len == crypto_sign_SECRETKEYBYTES()
-  result = newString(ciphertext.len - crypto_box_SEALBYTES())
+  assert ciphertext.len > crypto_box_SEALBYTES
+  result = newString(ciphertext.len - crypto_box_SEALBYTES)
   let
     m = cpt result
     c = cpt ciphertext
@@ -515,7 +588,8 @@ proc crypto_box_seal_open*(ciphertext: string, public_key: PublicKey, secret_key
     pk = cpt public_key
     sk = cpt secret_key
     rc = crypto_box_seal_open(m, c, clen, pk, sk)
-  check_rc rc
+  if rc != 0:
+    result = nil
 
 
 # Generic hashing
@@ -531,19 +605,20 @@ proc crypto_generichash(
   keylen: csize,
 ):cint {.sodium_import.}
 
-proc crypto_generichash*(data: string, hashlen: int = crypto_generichash_BYTES().int,
-    key: string = nil): string =
+proc crypto_generichash*(data: string,
+                         hashlen: int = crypto_generichash_BYTES,
+                         key: string = nil): string =
   ## Generate a hash of "data" of len "hashlen" using an optional key
   ## hashlen defaults to crypto_generichash_BYTES
   if key != nil:
-    doAssert(crypto_generichash_KEYBYTES_MIN().int <= key.len)
-    doAssert(key.len <= crypto_generichash_KEYBYTES_MAX().int)
+    doAssert(crypto_generichash_KEYBYTES_MIN <= key.len)
+    doAssert(key.len <= crypto_generichash_KEYBYTES_MAX)
 
   result = newString hashlen
   let
     h = cpt result
     hlen =
-      if hashlen == -1: csize(crypto_generichash_BYTES())
+      if hashlen == -1: csize(crypto_generichash_BYTES)
       else: csize(hashlen)
 
     m = cpt data
@@ -581,17 +656,19 @@ proc crypto_generichash_final(
 ):cint {.sodium_import.}
 
 
-proc new_generic_hash*(key: string, out_len: int = crypto_generichash_BYTES().int): GenericHash =
+proc new_generic_hash*(key: string,
+                       out_len: int = crypto_generichash_BYTES): GenericHash =
   ## Create a new multipart hash, returns a GenericHash.
   ## The GenericHash is to be updated with .update()
-  ## Upon calling .finalize() on it it will return a hash value of length "out_len"
+  ## Upon calling .finalize() on it it will return a
+  ## hash value of length "out_len"
   if key != nil:
-    doAssert crypto_generichash_KEYBYTES_MIN().int <= key.len
-    doAssert key.len <= crypto_generichash_KEYBYTES_MAX().int
-  doAssert crypto_generichash_BYTES_MIN().int <= out_len
-  doAssert out_len <= crypto_generichash_BYTES_MAX().int
+    doAssert crypto_generichash_KEYBYTES_MIN.int <= key.len
+    doAssert key.len <= crypto_generichash_KEYBYTES_MAX.int
+  doAssert crypto_generichash_BYTES_MIN.int <= out_len
+  doAssert out_len <= crypto_generichash_BYTES_MAX.int
 
-  result = (newString crypto_generichash_statebytes(), out_len)
+  result = (newString crypto_generichash_stateBYTES(), out_len)
   let
     state = cpt result.state
     k =
@@ -626,7 +703,9 @@ proc finalize*(self: GenericHash): string =
 # Short-input hashing
 # https://download.libsodium.org/doc/hashing/short-input_hashing.html
 
-type ShortHashKey = string
+type
+  ShortHashKey* = array[crypto_shorthash_KEYBYTES, char]
+  ShortHash* = array[crypto_shorthash_BYTES, char]
 
 proc crypto_shorthash(
   o: ptr cuchar,
@@ -635,10 +714,8 @@ proc crypto_shorthash(
   k: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_shorthash*(data: string, key: ShortHashKey): string =
+proc crypto_shorthash*(data: string, key: ShortHashKey): ShortHash =
   ## Hash optimized for short inputs
-  doAssert key.len == crypto_shorthash_KEYBYTES()
-  result = newString crypto_shorthash_BYTES()
   let
     o = cpt result
     d = cpt data
@@ -648,27 +725,11 @@ proc crypto_shorthash*(data: string, key: ShortHashKey): string =
   check_rc rc
 
 proc generate_key_for_short_hash*(): ShortHashKey =
-  return randombytes(crypto_shorthash_KEYBYTES())
+  randombytes result
 
 
 # Diffie-Hellman function
 # https://download.libsodium.org/doc/advanced/scalar_multiplication.html
-
-
-proc crypto_scalarmult_base(
-  q: ptr cuchar,
-  n: ptr cuchar,
-):cint {.sodium_import.}
-
-proc crypto_scalarmult_base*(secret_key: string): string =
-  assert secret_key.len == crypto_scalarmult_SCALARBYTES()
-  result = newString crypto_scalarmult_BYTES()
-  let
-    q = cpt result
-    n = cpt secret_key
-    rc = crypto_scalarmult_base(q, n)
-  check_rc rc
-
 
 proc crypto_scalarmult(
   q: ptr cuchar,
@@ -676,13 +737,13 @@ proc crypto_scalarmult(
   p: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_scalarmult*(secret_key, public_key: string): string =
+proc crypto_scalarmult*(secret_key: Curve25519Sk,
+                        public_key: Curve25519Pk):
+                        array[crypto_scalarmult_BYTES, char] =
   ## Compute a shared secret given a secret key and another user's public key.
-  ## The Sodium library recommends *not* using the shared secred directly, rather
-  ## a hash of the shared secred concatenated with the public keys from both users
-  assert secret_key.len == crypto_scalarmult_SCALARBYTES()
-  assert public_key.len == crypto_scalarmult_BYTES()
-  result = newString crypto_scalarmult_BYTES()
+  ## The Sodium library recommends *not* using the shared secred directly,
+  ## rather a hash of the shared secred concatenated with the public keys from
+  ## both users
   let
     q = cpt result  # output
     n = cpt secret_key  # secret key
@@ -690,8 +751,14 @@ proc crypto_scalarmult*(secret_key, public_key: string): string =
     rc = crypto_scalarmult(q, n, p)
   check_rc rc
 
+
 # Secret-key single-message authentication using Poly1305
 # https://download.libsodium.org/doc/advanced/poly1305.html
+
+type
+  OneTimeAuthKey* = array[crypto_onetimeauth_KEYBYTES, char]
+  OneTimeAuthTag* = array[crypto_onetimeauth_BYTES, char]
+
 
 proc crypto_onetimeauth(
   o: ptr cuchar,
@@ -700,11 +767,9 @@ proc crypto_onetimeauth(
   key: ptr cuchar
 ):cint {.sodium_import.}
 
-proc crypto_onetimeauth*(message, key: string): string =
+proc crypto_onetimeauth*(message: string, key: OneTimeAuthKey): OneTimeAuthTag =
   ## One-time authentication using Poly1305
   ## Warning: Use unpredictable, secret, unique keys
-  assert key.len == crypto_onetimeauth_KEYBYTES()
-  result = newString crypto_onetimeauth_BYTES()
   let
     o = cpt result
     msg = cpt message
@@ -721,16 +786,41 @@ proc crypto_onetimeauth_verify(
   key: ptr cuchar
 ):cint {.sodium_import.}
 
-proc crypto_onetimeauth_verify*(tok, message, key: string): bool =
+proc crypto_onetimeauth_verify*(tok: OneTimeAuthTag,
+                                message: string,
+                                key: OneTimeAuthKey): bool =
   ## Verify onetimeauth
-  assert key.len == crypto_onetimeauth_KEYBYTES()
-  assert tok.len == crypto_onetimeauth_BYTES()
   let
     o = cpt tok
     msg = cpt message
     msg_len = cpsize message
     k = cpt key
     rc = crypto_onetimeauth_verify(o, msg, msg_len, k)
-  return rc == 0
+  rc == 0
 
+
+# Ed25519 to Curve25519 keys conversion
+# https://download.libsodium.org/doc/advanced/ed25519-curve25519.html
+
+proc crypto_sign_ed25519_pk_to_curve25519(
+  curve25519_pk: ptr cuchar,
+  ed25519_pk: ptr cuchar
+):cint {.sodium_import.}
+
+proc crypto_sign_ed25519_pk_to_curve25519*(pk: Ed25519Pk): Curve25519Pk =
+  let
+    c = cpt result
+    e = cpt pk
+  check_rc crypto_sign_ed25519_pk_to_curve25519(c, e)
+
+proc crypto_sign_ed25519_sk_to_curve25519(
+  curve25519_sk: ptr cuchar,
+  ed25519_sk: ptr cuchar
+):cint {.sodium_import.}
+
+proc crypto_sign_ed25519_sk_to_curve25519*(sk: Ed25519Sk): Curve25519Sk =
+  let
+    c = cpt result
+    e = cpt sk
+  check_rc crypto_sign_ed25519_sk_to_curve25519(c, e)
 

@@ -20,7 +20,7 @@ WARNING: This library is under development and has not been reviewed by 3rd part
 
 ### Usage
 
-Refer to the link:https://download.libsodium.org/doc/index.html[official libsodium documentation] 
+Refer to the link:https://download.libsodium.org/doc/index.html[official libsodium documentation]
 
 and the generated documentation for the
 link:https://federicoceratto.github.io/nim-libsodium/docs/0.1.0/sodium.html[sodium]
@@ -39,11 +39,13 @@ nimble install libsodium
 import libsodium.sodium
 import libsodium.sodium_sizes
 
-let 
-  msg = "hello and goodbye" 
-  (pk, sk) = crypto_box_keypair() 
-  nonce = randombytes(crypto_box_NONCEBYTES()) 
-  ciphertext = crypto_box_easy(msg, nonce, pk, sk) 
+var nonce: BoxNonce
+randombytes nonce
+
+let
+  msg = "hello and goodbye"
+  (pk, sk) = crypto_box_keypair()
+  ciphertext = crypto_box_easy(msg, nonce, pk, sk)
 
 ----
 
