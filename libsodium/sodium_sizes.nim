@@ -1,17 +1,16 @@
-#
-# Libsodium18 wrapper for Nim
-#
-# 2016 Federico Ceratto <federico.ceratto@gmail.com>
+# 2017 Federico Ceratto <federico.ceratto@gmail.com>
 # Released under LGPLv3, see LICENSE file
 #
-# Functions returning sizes of various elements
+## Libsodium18/23 wrapper for Nim
+##
+## Functions returning sizes of various elements
 
 when defined(windows):
   const libsodium_fn* = "libsodium.dll"
 elif defined(macosx):
   const libsodium_fn* = "libsodium.dylib"
 else:
-  const libsodium_fn* = "libsodium.so.18"
+  const libsodium_fn* = "libsodium.so(.18|.23)"
 
 {.pragma: sodium_import, importc, dynlib: libsodium_fn.}
 
@@ -134,9 +133,6 @@ proc crypto_sign_ed25519_seedbytes*(): cint {.sodium_import.}
 proc crypto_sign_publickeybytes*(): cint {.sodium_import.}
 proc crypto_sign_secretkeybytes*(): cint {.sodium_import.}
 proc crypto_sign_seedbytes*(): cint {.sodium_import.}
-proc crypto_stream_aes128ctr_beforenmbytes*(): cint {.sodium_import.}
-proc crypto_stream_aes128ctr_keybytes*(): cint {.sodium_import.}
-proc crypto_stream_aes128ctr_noncebytes*(): cint {.sodium_import.}
 proc crypto_stream_chacha20_ietf_noncebytes*(): cint {.sodium_import.}
 proc crypto_stream_chacha20_keybytes*(): cint {.sodium_import.}
 proc crypto_stream_chacha20_noncebytes*(): cint {.sodium_import.}

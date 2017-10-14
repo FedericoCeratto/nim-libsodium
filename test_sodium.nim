@@ -1,10 +1,9 @@
-#
-# Libsodium18 wrapper for Nim
-# Unit and functional tests
-#
-# 2016 Federico Ceratto <federico.ceratto@gmail.com>
+# 2017 Federico Ceratto <federico.ceratto@gmail.com>
 # Released under LGPLv3, see LICENSE file
 #
+## Libsodium wrapper for Nim
+##
+## Unit and functional tests
 
 import strutils
 import unittest

@@ -1,11 +1,7 @@
-#
-# Libsodium18 wrapper for Nim
-#
-# 2016 Federico Ceratto <federico.ceratto@gmail.com>
+# 2017 Federico Ceratto <federico.ceratto@gmail.com>
 # Released under LGPLv3, see LICENSE file
 #
-#
-## Libsodium18 wrapper
+## Libsodium18/23 wrapper
 ##
 ## Memory-unsafe operations are not exposed.
 ##
@@ -23,7 +19,7 @@ when defined(windows):
 elif defined(macosx):
   const libsodium_fn* = "libsodium.dylib"
 else:
-  const libsodium_fn* = "libsodium.so.18"
+  const libsodium_fn* = "libsodium.so(.18|.23)"
 
 
 {.pragma: sodium_import, importc, dynlib: libsodium_fn.}
