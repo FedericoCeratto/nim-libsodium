@@ -3,7 +3,7 @@
 Nim wrapper for the libsodium library
 
 image:https://api.travis-ci.org/FedericoCeratto/nim-libsodium.svg?branch=master[badge]
-image:https://circleci.com/gh/FedericoCeratto/nim-libsodium.svg?style=shield&circle-token=c35aa4752bfd4ad6402126cae5056168c5268cfe[badge]
+image:https://circleci.com/gh/FedericoCeratto/nim-libsodium.svg?style=svg["CircleCI", link="https://circleci.com/gh/FedericoCeratto/nim-libsodium"]
 image:https://img.shields.io/badge/status-alpha-orange.svg[badge]
 image:https://img.shields.io/badge/version-0.1.0-orange.svg[badge]
 
