@@ -226,3 +226,60 @@ test "poly1305 onetimeauth":
   let bogus_key = repeat('x', crypto_onetimeauth_KEYBYTES())
   assert crypto_onetimeauth_verify(tok, msg, bogus_key) == false
 
+
+suite "stream ciphers":
+
+  test "Salsa20 keygen":
+    let key = crypto_stream_salsa20_keygen()
+    check crypto_auth_KEYBYTES() == 32
+    check key.len == crypto_auth_KEYBYTES()
+
+  test "Salsa20 stream":
+    expect AssertionError:
+      let nonce = repeat("n", crypto_stream_salsa20_NONCEBYTES())
+      discard crypto_stream_salsa20(nonce, "", 1024)
+
+    expect AssertionError:
+      let key = crypto_stream_salsa20_keygen()
+      discard crypto_stream_salsa20("", key, 1024)
+
+    let
+      key = repeat("k", crypto_stream_salsa20_KEYBYTES())
+      nonce = repeat("n", crypto_stream_salsa20_NONCEBYTES())
+      c = crypto_stream_salsa20(nonce, key, 64)
+    check c.bin2hex() == "83243f860e8d26b2396dc747e122ce2de52c75b7e0ca57f81d332bbafb8a1fae3d53acf28e021e2afb00a723f9540d9760dd3dcfd54ffbb69e59e76a79f72017"
+
+  test "Salsa20 stream xor":
+    let
+      key = repeat("k", crypto_stream_salsa20_KEYBYTES())
+      nonce = repeat("n", crypto_stream_salsa20_NONCEBYTES())
+      msg = "hello there"
+      c = crypto_stream_salsa20_xor(nonce, key, msg)
+    check c.bin2hex() == "eb4153ea61ad52da5c1fa2"
+
+    let decrypted = crypto_stream_salsa20_xor(nonce, key, c)
+    check decrypted == "hello there"
+
+  test "Salsa20 stream xor ic":
+    let
+      key = repeat("k", crypto_stream_salsa20_KEYBYTES())
+      nonce = repeat("n", crypto_stream_salsa20_NONCEBYTES())
+      msg = "hello there"
+      c = crypto_stream_salsa20_xor_ic(nonce, key, msg, 10)
+    check c.bin2hex() == "6496a6e3ee2d220ba22928"
+
+    let decrypted = crypto_stream_salsa20_xor_ic(nonce, key, c, 10)
+    check decrypted == "hello there"
+
+    let decrypted_wrong_ic = crypto_stream_salsa20_xor_ic(nonce, key, c, 11)
+    check decrypted_wrong_ic != "hello there"
+
+  test "Salsa20 stream xor ic 0":
+    let
+      key = repeat("k", crypto_stream_salsa20_KEYBYTES())
+      nonce = repeat("n", crypto_stream_salsa20_NONCEBYTES())
+      msg = "hello there"
+      c = crypto_stream_salsa20_xor(nonce, key, msg)
+
+    let decrypted = crypto_stream_salsa20_xor_ic(nonce, key, c, 0)
+    check decrypted == "hello there"

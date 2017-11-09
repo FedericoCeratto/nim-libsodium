@@ -730,3 +730,88 @@ proc crypto_onetimeauth_verify*(tok, message, key: string): bool =
   return rc == 0
 
 
+# Stream ciphers
+
+# Salsa20
+
+proc crypto_stream_salsa20(
+  c: ptr cuchar,
+  clen: csize,
+  n: ptr cuchar,
+  k: ptr cuchar
+):cint {.sodium_import.}
+
+proc crypto_stream_salsa20*(nonce, key: string, length: int): string =
+  ## Salsa20 stream cypher.
+  ## `nonce` requires lenght of crypto_stream_salsa20_NONCEBYTES
+  ## `key` requires crypto_stream_salsa20_KEYBYTES
+  ## Returns `lenght` bytes.
+  doAssert nonce.len == crypto_stream_salsa20_NONCEBYTES()
+  doAssert key.len == crypto_stream_salsa20_KEYBYTES()
+  result = newString length
+  let
+    c = cpt result
+    clen = cpsize result
+    n = cpt nonce
+    k = cpt key
+    rc = crypto_stream_salsa20(c, clen, n, k)
+  check_rc rc
+
+
+proc crypto_stream_salsa20_xor(
+  c: ptr cuchar,
+  m: ptr cuchar,
+  mlen: csize,
+  n: ptr cuchar,
+  k: ptr cuchar
+):cint {.sodium_import.}
+
+proc crypto_stream_salsa20_xor*(nonce, key, msg: string): string =
+  ## encrypts `msg`.
+  ## `nonce` requires lenght of crypto_stream_salsa20_NONCEBYTES
+  ## `key` requires crypto_stream_salsa20_KEYBYTES
+  result = newString msg.len
+  let
+    c = cpt result
+    m = cpt msg
+    mlen = cpsize msg
+    n = cpt nonce
+    k = cpt key
+    rc = crypto_stream_salsa20_xor(c, m, mlen, n, k)
+  check_rc rc
+
+
+proc crypto_stream_salsa20_xor_ic(
+  c: ptr cuchar,
+  m: ptr cuchar,
+  mlen: csize,
+  n: ptr cuchar,
+  ic: cuint,
+  k: ptr cuchar
+):cint {.sodium_import.}
+
+proc crypto_stream_salsa20_xor_ic*(nonce, key, msg: string, ic: uint): string =
+  ## encrypts `msg`.
+  ## `nonce` requires lenght of crypto_stream_salsa20_NONCEBYTES
+  ## `key` requires crypto_stream_salsa20_KEYBYTES
+  ## `ic` is the initial value for the block counter.
+  result = newString msg.len
+  let
+    c = cpt result
+    m = cpt msg
+    mlen = cpsize msg
+    n = cpt nonce
+    k = cpt key
+    rc = crypto_stream_salsa20_xor_ic(c, m, mlen, n, ic.cuint, k)
+  check_rc rc
+
+
+proc crypto_stream_salsa20_keygen(
+  k: ptr cuchar,
+) {.sodium_import.}
+
+proc crypto_stream_salsa20_keygen*(): string =
+  ## Returns `crypto_stream_salsa20_KEYBYTES` random bytes.
+  result = newString crypto_stream_salsa20_KEYBYTES()
+  let o = cpt result
+  crypto_stream_salsa20_keygen(o)
