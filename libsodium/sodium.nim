@@ -478,9 +478,9 @@ proc crypto_box_seal(
   pk: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_box_seal*(message: string, public_key: PublicKey): string =
+proc crypto_box_seal*(message: string, public_key: CryptoBoxPublicKey): string =
   ## Encrypt a message using the receiver public key
-  assert public_key.len == crypto_sign_PUBLICKEYBYTES()
+  assert public_key.len == crypto_box_PUBLICKEYBYTES()
   result = newString(message.len + crypto_box_SEALBYTES())
   let
     pk = cpt public_key
@@ -499,10 +499,10 @@ proc crypto_box_seal_open(
   sk: ptr cuchar,
 ):cint {.sodium_import.}
 
-proc crypto_box_seal_open*(ciphertext: string, public_key: PublicKey, secret_key: SecretKey): string =
+proc crypto_box_seal_open*(ciphertext: string, public_key: CryptoBoxPublicKey, secret_key: CryptoBoxSecretKey): string =
   ## Decrypt a ciphertext using a public and secret key
-  assert public_key.len == crypto_sign_PUBLICKEYBYTES()
-  assert secret_key.len == crypto_sign_SECRETKEYBYTES()
+  assert public_key.len == crypto_box_PUBLICKEYBYTES()
+  assert secret_key.len == crypto_box_SECRETKEYBYTES()
   result = newString(ciphertext.len - crypto_box_SEALBYTES())
   let
     m = cpt result
