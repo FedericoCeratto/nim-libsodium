@@ -220,7 +220,7 @@ proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
   return decrypted
 
 
-# Secret-key authentication
+# Secret-key authentication (HMAC)
 # https://download.libsodium.org/doc/secret-key_cryptography/secret-key_authentication.html
 
 proc crypto_auth(
@@ -232,6 +232,7 @@ proc crypto_auth(
 
 proc crypto_auth*(message, key: string): string =
   result = newString crypto_auth_BYTES()
+  assert key.len == crypto_auth_keybytes()
   let
     mac = cpt result
     msg = cpt message
@@ -249,6 +250,8 @@ proc crypto_auth_verify(
 ):cint {.sodium_import.}
 
 proc crypto_auth_verify*(mac, message, key: string): bool =
+  assert key.len == crypto_auth_keybytes()
+  assert mac.len == crypto_auth_bytes()
   let
     tag = cpt mac
     msg = cpt message
@@ -727,6 +730,47 @@ proc crypto_onetimeauth_verify*(tok, message, key: string): bool =
     msg_len = cpsize message
     k = cpt key
     rc = crypto_onetimeauth_verify(o, msg, msg_len, k)
+  return rc == 0
+
+# HMAC
+
+proc crypto_auth_hmacsha256(
+  o: ptr cuchar,
+  i: ptr cuchar,
+  inlen: csize,
+  k: ptr cuchar
+): cint {.sodium_import.}
+
+proc crypto_auth_hmacsha256*(message, key: string): string =
+  ## HMAC SHA256
+  assert key.len == crypto_auth_hmacsha256_keybytes()
+  result = newString crypto_auth_hmacsha256_bytes()
+  let
+    o = cpt result
+    msg = cpt message
+    msg_len = cpsize message
+    k = cpt key
+    rc = crypto_auth_hmacsha256(o, msg, msg_len, k)
+  check_rc rc
+
+proc crypto_auth_hmacsha256_verify(
+  h: ptr cuchar,
+  i: ptr cuchar,
+  inlen: csize,
+  k: ptr cuchar,
+): cint {.sodium_import.}
+
+proc crypto_auth_hmacsha256_verify*(mac, message, key: string): bool =
+  ## HMAC SHA256 verification
+  assert mac.len == crypto_auth_hmacsha256_bytes()
+  assert key.len == crypto_auth_hmacsha256_keybytes()
+  let
+    tag = cpt mac
+    msg = cpt message
+    msg_len = cpsize message
+    k = cpt key
+    rc = crypto_auth_hmacsha256_verify(tag, msg, msg_len, k)
+
   return rc == 0
 
 

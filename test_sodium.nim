@@ -227,6 +227,52 @@ test "poly1305 onetimeauth":
   assert crypto_onetimeauth_verify(tok, msg, bogus_key) == false
 
 
+suite "HMAC":
+
+  const msg = repeat("n", 1000)
+
+  test "HMAC short key":
+    expect AssertionError:
+      let
+        key = repeat("k", crypto_auth_keybytes() - 1)
+        h = crypto_auth(msg, key)
+
+  test "HMAC":
+    let
+      key = repeat("k", crypto_auth_keybytes())
+      h = crypto_auth(msg, key)
+    check crypto_auth_verify(h, msg, key) == true
+    check h.bin2hex() == "24deaa07e4739fc6f4870cd2021b3a220958df7ca43ad576a387f0eebb20b79e"
+
+  test "HMAC invalid signature":
+    let
+      key = repeat("k", crypto_auth_keybytes())
+      h = crypto_auth(msg, key)
+    check crypto_auth_verify(h, msg & "X", key) == false
+
+
+  # SHA256
+
+  test "HMAC SHA256 short key":
+    expect AssertionError:
+      let
+        key = repeat("k", crypto_auth_hmacsha256_keybytes() - 1)
+        h = crypto_auth_hmacsha256(msg, key)
+
+  test "HMAC SHA256":
+    let
+      key = repeat("k", crypto_auth_hmacsha256_keybytes())
+      h = crypto_auth_hmacsha256(msg, key)
+    check crypto_auth_hmacsha256_verify(h, msg, key) == true
+    check h.bin2hex() == "883225c5a7cb0af67ea5be42278287dbff875da22a39bd209eb5623c4123159c"
+
+  test "HMAC SHA256 invalid signature":
+    let
+      key = repeat("k", crypto_auth_hmacsha256_keybytes())
+      h = crypto_auth_hmacsha256(msg, key)
+    check crypto_auth_hmacsha256_verify(h, msg & "X", key) == false
+
+
 suite "stream ciphers":
 
   test "Salsa20 keygen":
