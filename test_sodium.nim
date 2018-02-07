@@ -272,6 +272,22 @@ suite "HMAC":
       h = crypto_auth_hmacsha256(msg, key)
     check crypto_auth_hmacsha256_verify(h, msg & "X", key) == false
 
+  test "HMAC SHA256 multipart":
+    let key = repeat("k", crypto_auth_hmacsha256_keybytes())
+    var hm = new_crypto_auth_hmacsha256(key)
+    hm.update(msg)
+    let h = hm.finalize()
+    # same as non-multipart test
+    check h.bin2hex() == "883225c5a7cb0af67ea5be42278287dbff875da22a39bd209eb5623c4123159c"
+
+  test "HMAC SHA256 multipart":
+    let key = repeat("k", crypto_auth_hmacsha256_keybytes())
+    var hm = new_crypto_auth_hmacsha256(key)
+    hm.update("hi")
+    hm.update("hello")
+    let h = hm.finalize()
+    check h.bin2hex() == "65c6c6abb234c900c0350935756ae38dbe08dc209c03f18886a18794059ca353"
+
 
 suite "stream ciphers":
 

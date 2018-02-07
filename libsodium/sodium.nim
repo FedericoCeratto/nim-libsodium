@@ -773,6 +773,60 @@ proc crypto_auth_hmacsha256_verify*(mac, message, key: string): bool =
 
   return rc == 0
 
+proc crypto_auth_hmacsha256_init(
+  state: ptr cuchar,
+  key: ptr cuchar,
+  keylen: csize
+): cint {.sodium_import.}
+
+proc crypto_auth_hmacsha256_update(
+  state: ptr cuchar,
+  data: ptr cuchar,
+  data_len: csize
+):cint {.sodium_import.}
+
+proc crypto_auth_hmacsha256_final(
+  state: ptr cuchar,
+  output: ptr cuchar,
+):cint {.sodium_import.}
+
+type HMACSHA256State* = tuple
+  state: string
+
+proc new_crypto_auth_hmacsha256*(key: string): HMACSHA256State =
+  ## Create multipart SHA256 HMAC
+  ## Create a new multipart hash, returns a HMACSHA256State
+  ## The HMACSHA256State is to be updated with .update()
+  ## Upon calling .finalize() on it it will return a hash value
+  result.state = newString crypto_auth_hmacsha256_statebytes()
+  let
+    state = cpt result.state
+    k =
+      if key == nil: nil
+      else: cpt key
+    klen = cpsize key
+    rc = crypto_auth_hmacsha256_init(state, k, klen)
+  check_rc rc
+
+proc update*(self: HMACSHA256State, data: string) =
+  ## Update the multipart hash with more data
+  let
+    s = cpt self.state
+    d = cpt data
+    d_len = cpsize data
+    rc = crypto_auth_hmacsha256_update(s, d, d_len)
+  check_rc rc
+
+proc finalize*(self: HMACSHA256State): string =
+  ## Finish the multipart hash and return the hash value as a string
+  result = newString crypto_auth_hmacsha256_bytes()
+  let
+    s = cpt self.state
+    h = cpt result
+    rc = crypto_auth_hmacsha256_final(s, h)
+  check_rc rc
+
+
 
 # Stream ciphers
 
