@@ -291,6 +291,10 @@ suite "HMAC":
 
 suite "stream ciphers":
 
+  test "Salsa20 sizes":
+    check crypto_stream_salsa20_NONCEBYTES() * 8 == 64
+    check crypto_stream_salsa20_KEYBYTES() * 8 == 256
+
   test "Salsa20 keygen":
     let key = crypto_stream_salsa20_keygen()
     check crypto_auth_KEYBYTES() == 32
@@ -344,4 +348,53 @@ suite "stream ciphers":
       c = crypto_stream_salsa20_xor(nonce, key, msg)
 
     let decrypted = crypto_stream_salsa20_xor_ic(nonce, key, c, 0)
+    check decrypted == "hello there"
+
+  # XSalsa20
+
+  test "XSalsa20 sizes":
+    check crypto_stream_xsalsa20_NONCEBYTES() * 8 == 192
+    check crypto_stream_xsalsa20_KEYBYTES() * 8 == 256
+
+  test "XSalsa20 keygen":
+    let key = crypto_stream_keygen()
+    check crypto_auth_KEYBYTES() == 32
+    check key.len == crypto_auth_KEYBYTES()
+
+  test "XSalsa20 stream":
+    expect AssertionError:
+      let nonce = repeat("n", crypto_stream_xsalsa20_NONCEBYTES())
+      discard crypto_stream(nonce, "", 1024)
+
+    expect AssertionError:
+      let key = crypto_stream_keygen()
+      discard crypto_stream("", key, 1024)
+
+    let
+      key = repeat("k", crypto_stream_xsalsa20_KEYBYTES())
+      nonce = repeat("n", crypto_stream_xsalsa20_NONCEBYTES())
+      c = crypto_stream(nonce, key, 64)
+    check c.bin2hex() == "91172bd584998fa76d97a543eccf9eafdde4107708b45dda53ad660ebfc44656c8c850d59229d2a15e54fb6a1119be624e1880c0916eb6e08b2557e1d03db9da"
+
+  test "XSalsa20 stream xor":
+    const
+      key = "this is 32-byte key for xsalsa20"
+      nonce = "24-byte nonce for xsalsa"
+      msg = "Hello world!"
+    let
+      c = crypto_stream_xor(nonce, key, msg)
+    check c.bin2hex() == "002d4513843fc240c401e541"
+
+    let decrypted = crypto_stream_xor(nonce, key, c)
+    check decrypted == msg
+
+  test "XSalsa20 stream xor":
+    let
+      key = repeat("k", crypto_stream_xsalsa20_KEYBYTES())
+      nonce = repeat("n", crypto_stream_xsalsa20_NONCEBYTES())
+      msg = "hello there"
+      c = crypto_stream_xor(nonce, key, msg)
+    check c.bin2hex() == "f97247b9ebb9fbcf08e5c0"
+
+    let decrypted = crypto_stream_xor(nonce, key, c)
     check decrypted == "hello there"

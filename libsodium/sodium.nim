@@ -841,8 +841,8 @@ proc crypto_stream_salsa20(
 
 proc crypto_stream_salsa20*(nonce, key: string, length: int): string =
   ## Salsa20 stream cypher.
-  ## `nonce` requires lenght of crypto_stream_salsa20_NONCEBYTES
-  ## `key` requires crypto_stream_salsa20_KEYBYTES
+  ## `nonce` requires lenght of crypto_stream_salsa20_NONCEBYTES (64 bits)
+  ## `key` requires crypto_stream_salsa20_KEYBYTES (256 bits)
   ## Returns `lenght` bytes.
   doAssert nonce.len == crypto_stream_salsa20_NONCEBYTES()
   doAssert key.len == crypto_stream_salsa20_KEYBYTES()
@@ -913,3 +913,64 @@ proc crypto_stream_salsa20_keygen*(): string =
   result = newString crypto_stream_salsa20_KEYBYTES()
   let o = cpt result
   crypto_stream_salsa20_keygen(o)
+
+
+# XSalsa20
+
+proc crypto_stream(
+  c: ptr cuchar,
+  clen: csize,
+  n: ptr cuchar,
+  k: ptr cuchar
+):cint {.sodium_import.}
+
+proc crypto_stream*(nonce, key: string, length: int): string =
+  ## XSalsa20 stream cypher.
+  ## `nonce` requires lenght of crypto_stream_xsalsa20_NONCEBYTES (192 bits)
+  ## `key` requires crypto_stream_xsalsa20_KEYBYTES (256 bits)
+  ## Returns `lenght` bytes.
+  doAssert nonce.len == crypto_stream_xsalsa20_NONCEBYTES()
+  doAssert key.len == crypto_stream_xsalsa20_KEYBYTES()
+  result = newString length
+  let
+    c = cpt result
+    clen = cpsize result
+    n = cpt nonce
+    k = cpt key
+    rc = crypto_stream(c, clen, n, k)
+  check_rc rc
+
+
+proc crypto_stream_xor(
+  c: ptr cuchar,
+  m: ptr cuchar,
+  mlen: csize,
+  n: ptr cuchar,
+  k: ptr cuchar
+):cint {.sodium_import.}
+
+proc crypto_stream_xor*(nonce, key, msg: string): string =
+  ## encrypts `msg` using XSalsa20.
+  ## `nonce` requires lenght of crypto_stream_xsalsa20_NONCEBYTES
+  ## `key` requires crypto_stream_xsalsa20_KEYBYTES
+  result = newString msg.len
+  let
+    c = cpt result
+    m = cpt msg
+    mlen = cpsize msg
+    n = cpt nonce
+    k = cpt key
+    rc = crypto_stream_xor(c, m, mlen, n, k)
+  check_rc rc
+
+
+proc crypto_stream_keygen(
+  k: ptr cuchar,
+) {.sodium_import.}
+
+proc crypto_stream_keygen*(): string =
+  ## Returns `crypto_stream_xsalsa20_KEYBYTES` random bytes.
+  ## To be used with `crypto_stream` or `crypto_stream_xor`
+  result = newString crypto_stream_salsa20_KEYBYTES()
+  let o = cpt result
+  crypto_stream_keygen(o)
