@@ -1,0 +1,45 @@
+version: 2
+jobs:
+  build:
+    machine: true
+    steps:
+      - run: echo 'export PATH=~/.nimble/bin:$PATH' >> $BASH_ENV
+      - checkout
+      # Reuse cached Nim compiler
+      - restore_cache:
+          key: cache-0001
+      - run:
+          command: |
+            if [ -f ~/.nimble/bin/choosenim ]; then
+              echo "Updating Nim using choosenim"
+              choosenim stable
+            else
+              echo "Installing choosenim and Nim"
+              wget https://raw.githubusercontent.com/dom96/choosenim/master/scripts/choosenim-unix-init.sh
+              sh choosenim-unix-init.sh -y
+            fi
+            if [ -d ~/libsodium-1.0.15 ]; then
+              echo "Not installing libsodium again"
+            else
+              # Ubuntu Trusty has no libsodium and there are no backports for newer libsodium versions
+              wget https://download.libsodium.org/libsodium/releases/libsodium-1.0.15.tar.gz
+              tar xfz libsodium*gz
+              cd libsodium-1.0.15 && ./configure && make && make check && sudo make install
+              sudo cp /usr/local/lib/libsodium.so /usr/local/lib/libsodium.so.18
+            fi
+      - save_cache:
+          key: cache-0001
+          paths:
+            - ~/.nimble
+            - ~/.choosenim
+            - ~/libsodium-1.0.15
+      - run:
+          command: |
+            cd ~/project
+            ~/.nimble/bin/nim c test_sodium.nim
+            LD_LIBRARY_PATH=/usr/local/lib ./test_sodium
+      - store_artifacts:
+          path: test-reports/
+          destination: tr1
+      - store_test_results:
+          path: test-reports/
