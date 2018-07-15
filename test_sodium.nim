@@ -186,10 +186,12 @@ suite "hashing":
       h = crypto_shorthash("hello", k)
       h2 = crypto_shorthash("hello", k)
       h_using_k2 = crypto_shorthash("hello", k2)
+    assert k.len == crypto_shorthash_KEYBYTES()
+    assert k2.len == crypto_shorthash_KEYBYTES()
+    assert k != k2
+    assert h.len == crypto_shorthash_BYTES()
     assert h == h2
     assert h != h_using_k2
-    assert k.len == crypto_shorthash_KEYBYTES()
-    assert h.len == crypto_shorthash_BYTES()
 
 test "Diffie-Hellman function":
 

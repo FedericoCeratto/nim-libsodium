@@ -34,6 +34,9 @@ template cpt(target: string): expr =
 template cpsize(target: string): expr =
   csize(target.len)
 
+template culen(target: string): expr =
+  culonglong(target.len)
+
 template zeroed*(length: int): expr =
   ## Return a zeroed string
   repeat('\0', length)
@@ -55,13 +58,13 @@ template check_rc(rc: cint): expr =
 
 proc randombytes(
   buf: ptr cuchar,
-  size: csize,
+  size: culonglong,
 ) {.sodium_import.}
 
 proc randombytes*(size: int): string =
   result = newString size
   let o = cpt result
-  randombytes(o, csize(size))
+  randombytes(o, culonglong(size))
   assert result.len == size
 
 proc randombytes_stir*() {.sodium_import.}
@@ -161,7 +164,7 @@ proc hex2bin*(data: string, ignore=""): string =
 proc crypto_secretbox_easy(
   c: ptr cuchar,
   m: ptr cuchar,
-  mlen: csize,
+  mlen: culonglong,
   n: ptr cuchar,
   k: ptr cuchar,
 ):cint {.sodium_import.}
@@ -179,7 +182,7 @@ proc crypto_secretbox_easy*(key: string, msg: string): string =
     ciphertext = newString msg.len + crypto_secretbox_MACBYTES()
     c_ciphertext = cpt ciphertext
     cmsg = cpt msg
-    mlen = cpsize msg
+    mlen = culen msg
     ckey = cpt key
   let rc = crypto_secretbox_easy(c_ciphertext, cmsg, mlen, cnonce, ckey)
   check_rc rc
@@ -189,7 +192,7 @@ proc crypto_secretbox_easy*(key: string, msg: string): string =
 proc crypto_secretbox_open_easy(
   decrypted: ptr cuchar,
   c: ptr cuchar,
-  clen: csize,
+  clen: culonglong,
   n: ptr cuchar,
   k: ptr cuchar,
 ):cint {.sodium_import.}
@@ -211,7 +214,7 @@ proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
     decrypted = newString ciphertext.len - crypto_secretbox_MACBYTES()
     c_decrypted = cpt decrypted
     c_ciphertext = cpt ciphertext
-    ciphertext_len = cpsize ciphertext
+    ciphertext_len = culen ciphertext
     c_nonce = cpt nonce
     c_key = cpt key
   let rc = crypto_secretbox_open_easy(c_decrypted, c_ciphertext, ciphertext_len, c_nonce, c_key)
@@ -226,7 +229,7 @@ proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
 proc crypto_auth(
   mac: ptr cuchar,
   msg: ptr cuchar,
-  msg_len: csize,
+  msg_len: culonglong,
   key: ptr cuchar,
 ):cint {.sodium_import.}
 
@@ -236,7 +239,7 @@ proc crypto_auth*(message, key: string): string =
   let
     mac = cpt result
     msg = cpt message
-    msg_len = cpsize message
+    msg_len = culen message
     k = cpt key
     rc = crypto_auth(mac, msg, msg_len, k)
   check_rc rc
@@ -245,7 +248,7 @@ proc crypto_auth*(message, key: string): string =
 proc crypto_auth_verify(
   mac: ptr cuchar,
   msg: ptr cuchar,
-  msg_len: csize,
+  msg_len: culonglong,
   key: ptr cuchar,
 ):cint {.sodium_import.}
 
@@ -255,7 +258,7 @@ proc crypto_auth_verify*(mac, message, key: string): bool =
   let
     tag = cpt mac
     msg = cpt message
-    msg_len = cpsize message
+    msg_len = culen message
     k = cpt key
     rc = crypto_auth_verify(tag, msg, msg_len, k)
 
@@ -312,7 +315,7 @@ proc crypto_box_keypair*(): (CryptoBoxPublicKey, CryptoBoxSecretKey) =
 proc crypto_box_easy(
   c: ptr cuchar,
   m: ptr cuchar,
-  mlen: csize,
+  mlen: culonglong,
   n: ptr cuchar,
   pk: ptr cuchar,
   sk: ptr cuchar,
@@ -324,7 +327,7 @@ proc crypto_box_easy*(message, nonce: string, public_key: CryptoBoxPublicKey, se
   let
     c = cpt result
     m = cpt message
-    mlen = cpsize message
+    mlen = culen message
     n = cpt nonce
     pk = cpt public_key
     sk = cpt secret_key
@@ -334,7 +337,7 @@ proc crypto_box_easy*(message, nonce: string, public_key: CryptoBoxPublicKey, se
 proc crypto_box_open_easy(
   c: ptr cuchar,
   m: ptr cuchar,
-  mlen: csize,
+  mlen: culonglong,
   n: ptr cuchar,
   pk: ptr cuchar,
   sk: ptr cuchar,
@@ -346,7 +349,7 @@ proc crypto_box_open_easy*(ciphertext, nonce: string, public_key: CryptoBoxPubli
   let
     m = cpt result
     c = cpt ciphertext
-    clen = cpsize ciphertext
+    clen = culen ciphertext
     n = cpt nonce
     pk = cpt public_key
     sk = cpt secret_key
@@ -400,9 +403,9 @@ proc crypto_sign_seed_keypair*(seed: string): (PublicKey, SecretKey) =
 
 proc crypto_sign_detached(
    sig: ptr cuchar,
-   siglen: ptr csize,
+   siglen: ptr culonglong,
    m: ptr cuchar,
-   mlen: csize,
+   mlen: culonglong,
    sk: ptr cuchar
 ):cint {.sodium_import.}
 
@@ -412,7 +415,7 @@ proc crypto_sign_detached*(secret_key: SecretKey, message: string): string =
     sk = cpt secret_key
     sig = cpt result
     msg = cpt message
-    msg_len = cpsize message
+    msg_len = culen message
 
   let rc = crypto_sign_detached(sig, nil, msg, msg_len, sk)
   check_rc rc
@@ -422,7 +425,7 @@ proc crypto_sign_detached*(secret_key: SecretKey, message: string): string =
 proc crypto_sign_verify_detached(
   sig: ptr cuchar,
   m: ptr cuchar,
-  mlen: csize,
+  mlen: culonglong,
   pk: ptr cuchar
 ):cint {.sodium_import.}
 
@@ -433,7 +436,7 @@ proc crypto_sign_verify_detached*(public_key: PublicKey, message, signature: str
     pk = cpt public_key
     sig = cpt signature
     msg = cpt message
-    msg_len = cpsize message
+    msg_len = culen message
   let rc = crypto_sign_verify_detached(sig, msg, msg_len, pk)
   check_rc rc
 
@@ -477,7 +480,7 @@ proc crypto_sign_ed25519_sk_to_pk*(secret_key: SecretKey): PublicKey =
 proc crypto_box_seal(
   c: ptr cuchar;
   m: ptr cuchar,
-  mlen: csize,
+  mlen: culonglong,
   pk: ptr cuchar,
 ):cint {.sodium_import.}
 
@@ -488,7 +491,7 @@ proc crypto_box_seal*(message: string, public_key: CryptoBoxPublicKey): string =
   let
     pk = cpt public_key
     msg = cpt message
-    msg_len = cpsize message
+    msg_len = culen message
     c = cpt result
     rc = crypto_box_seal(c, msg, msg_len, pk)
   check_rc rc
@@ -497,7 +500,7 @@ proc crypto_box_seal*(message: string, public_key: CryptoBoxPublicKey): string =
 proc crypto_box_seal_open(
   m: ptr cuchar,
   c: ptr cuchar,
-  clen: csize,
+  clen: culonglong,
   pk: ptr cuchar,
   sk: ptr cuchar,
 ):cint {.sodium_import.}
@@ -510,7 +513,7 @@ proc crypto_box_seal_open*(ciphertext: string, public_key: CryptoBoxPublicKey, s
   let
     m = cpt result
     c = cpt ciphertext
-    clen = cpsize ciphertext
+    clen = culen ciphertext
     pk = cpt public_key
     sk = cpt secret_key
     rc = crypto_box_seal_open(m, c, clen, pk, sk)
@@ -525,7 +528,7 @@ proc crypto_generichash(
   h: ptr cuchar,
   hlen: csize,
   m: ptr cuchar,
-  mlen: csize,
+  mlen: culonglong,
   key: ptr cuchar,
   keylen: csize,
 ):cint {.sodium_import.}
@@ -546,7 +549,7 @@ proc crypto_generichash*(data: string, hashlen: int = crypto_generichash_BYTES()
       else: csize(hashlen)
 
     m = cpt data
-    mlen = cpsize data
+    mlen = culen data
     k =
       if key == nil: nil
       else: cpt key
@@ -570,7 +573,7 @@ proc crypto_generichash_init(
 proc crypto_generichash_update(
   state: ptr cuchar,
   data: ptr cuchar,
-  data_len: csize
+  data_len: culonglong
 ):cint {.sodium_import.}
 
 proc crypto_generichash_final(
@@ -606,7 +609,7 @@ proc update*(self: GenericHash, data: string) =
   let
     s = cpt self.state
     d = cpt data
-    d_len = cpsize data
+    d_len = culen data
     rc = crypto_generichash_update(s, d, d_len)
   check_rc rc
 
@@ -630,9 +633,10 @@ type ShortHashKey = string
 proc crypto_shorthash(
   o: ptr cuchar,
   data: ptr cuchar,
-  data_len: csize,
+  data_len: culonglong,
   k: ptr cuchar,
 ):cint {.sodium_import.}
+
 
 proc crypto_shorthash*(data: string, key: ShortHashKey): string =
   ## Hash optimized for short inputs
@@ -641,7 +645,7 @@ proc crypto_shorthash*(data: string, key: ShortHashKey): string =
   let
     o = cpt result
     d = cpt data
-    d_len = cpsize data
+    d_len = culen data
     k = cpt key
     rc = crypto_shorthash(o, d, d_len, k)
   check_rc rc
@@ -695,7 +699,7 @@ proc crypto_scalarmult*(secret_key, public_key: string): string =
 proc crypto_onetimeauth(
   o: ptr cuchar,
   msg: ptr cuchar,
-  msg_len: csize,
+  msg_len: culonglong,
   key: ptr cuchar
 ):cint {.sodium_import.}
 
@@ -707,7 +711,7 @@ proc crypto_onetimeauth*(message, key: string): string =
   let
     o = cpt result
     msg = cpt message
-    msg_len = cpsize message
+    msg_len = culen message
     k = cpt key
     rc = crypto_onetimeauth(o, msg, msg_len, k)
   check_rc rc
@@ -716,7 +720,7 @@ proc crypto_onetimeauth*(message, key: string): string =
 proc crypto_onetimeauth_verify(
   o: ptr cuchar,
   msg: ptr cuchar,
-  msg_len: csize,
+  msg_len: culonglong,
   key: ptr cuchar
 ):cint {.sodium_import.}
 
@@ -727,7 +731,7 @@ proc crypto_onetimeauth_verify*(tok, message, key: string): bool =
   let
     o = cpt tok
     msg = cpt message
-    msg_len = cpsize message
+    msg_len = culen message
     k = cpt key
     rc = crypto_onetimeauth_verify(o, msg, msg_len, k)
   return rc == 0
@@ -737,7 +741,7 @@ proc crypto_onetimeauth_verify*(tok, message, key: string): bool =
 proc crypto_auth_hmacsha256(
   o: ptr cuchar,
   i: ptr cuchar,
-  inlen: csize,
+  inlen: culonglong,
   k: ptr cuchar
 ): cint {.sodium_import.}
 
@@ -748,7 +752,7 @@ proc crypto_auth_hmacsha256*(message, key: string): string =
   let
     o = cpt result
     msg = cpt message
-    msg_len = cpsize message
+    msg_len = culen message
     k = cpt key
     rc = crypto_auth_hmacsha256(o, msg, msg_len, k)
   check_rc rc
@@ -756,7 +760,7 @@ proc crypto_auth_hmacsha256*(message, key: string): string =
 proc crypto_auth_hmacsha256_verify(
   h: ptr cuchar,
   i: ptr cuchar,
-  inlen: csize,
+  inlen: culonglong,
   k: ptr cuchar,
 ): cint {.sodium_import.}
 
@@ -767,7 +771,7 @@ proc crypto_auth_hmacsha256_verify*(mac, message, key: string): bool =
   let
     tag = cpt mac
     msg = cpt message
-    msg_len = cpsize message
+    msg_len = culen message
     k = cpt key
     rc = crypto_auth_hmacsha256_verify(tag, msg, msg_len, k)
 
@@ -776,13 +780,13 @@ proc crypto_auth_hmacsha256_verify*(mac, message, key: string): bool =
 proc crypto_auth_hmacsha256_init(
   state: ptr cuchar,
   key: ptr cuchar,
-  keylen: csize
+  keylen: culonglong
 ): cint {.sodium_import.}
 
 proc crypto_auth_hmacsha256_update(
   state: ptr cuchar,
   data: ptr cuchar,
-  data_len: csize
+  data_len: culonglong
 ):cint {.sodium_import.}
 
 proc crypto_auth_hmacsha256_final(
@@ -804,7 +808,7 @@ proc new_crypto_auth_hmacsha256*(key: string): HMACSHA256State =
     k =
       if key == nil: nil
       else: cpt key
-    klen = cpsize key
+    klen = culen key
     rc = crypto_auth_hmacsha256_init(state, k, klen)
   check_rc rc
 
@@ -813,7 +817,7 @@ proc update*(self: HMACSHA256State, data: string) =
   let
     s = cpt self.state
     d = cpt data
-    d_len = cpsize data
+    d_len = culen data
     rc = crypto_auth_hmacsha256_update(s, d, d_len)
   check_rc rc
 
@@ -834,7 +838,7 @@ proc finalize*(self: HMACSHA256State): string =
 
 proc crypto_stream_salsa20(
   c: ptr cuchar,
-  clen: csize,
+  clen: culonglong,
   n: ptr cuchar,
   k: ptr cuchar
 ):cint {.sodium_import.}
@@ -849,7 +853,7 @@ proc crypto_stream_salsa20*(nonce, key: string, length: int): string =
   result = newString length
   let
     c = cpt result
-    clen = cpsize result
+    clen = culen result
     n = cpt nonce
     k = cpt key
     rc = crypto_stream_salsa20(c, clen, n, k)
@@ -859,7 +863,7 @@ proc crypto_stream_salsa20*(nonce, key: string, length: int): string =
 proc crypto_stream_salsa20_xor(
   c: ptr cuchar,
   m: ptr cuchar,
-  mlen: csize,
+  mlen: culonglong,
   n: ptr cuchar,
   k: ptr cuchar
 ):cint {.sodium_import.}
@@ -872,7 +876,7 @@ proc crypto_stream_salsa20_xor*(nonce, key, msg: string): string =
   let
     c = cpt result
     m = cpt msg
-    mlen = cpsize msg
+    mlen = culen msg
     n = cpt nonce
     k = cpt key
     rc = crypto_stream_salsa20_xor(c, m, mlen, n, k)
@@ -882,9 +886,9 @@ proc crypto_stream_salsa20_xor*(nonce, key, msg: string): string =
 proc crypto_stream_salsa20_xor_ic(
   c: ptr cuchar,
   m: ptr cuchar,
-  mlen: csize,
+  mlen: culonglong,
   n: ptr cuchar,
-  ic: cuint,
+  ic: uint64,
   k: ptr cuchar
 ):cint {.sodium_import.}
 
@@ -897,7 +901,7 @@ proc crypto_stream_salsa20_xor_ic*(nonce, key, msg: string, ic: uint): string =
   let
     c = cpt result
     m = cpt msg
-    mlen = cpsize msg
+    mlen = culen msg
     n = cpt nonce
     k = cpt key
     rc = crypto_stream_salsa20_xor_ic(c, m, mlen, n, ic.cuint, k)
@@ -919,7 +923,7 @@ proc crypto_stream_salsa20_keygen*(): string =
 
 proc crypto_stream(
   c: ptr cuchar,
-  clen: csize,
+  clen: culonglong,
   n: ptr cuchar,
   k: ptr cuchar
 ):cint {.sodium_import.}
@@ -934,7 +938,7 @@ proc crypto_stream*(nonce, key: string, length: int): string =
   result = newString length
   let
     c = cpt result
-    clen = cpsize result
+    clen = culen result
     n = cpt nonce
     k = cpt key
     rc = crypto_stream(c, clen, n, k)
@@ -944,7 +948,7 @@ proc crypto_stream*(nonce, key: string, length: int): string =
 proc crypto_stream_xor(
   c: ptr cuchar,
   m: ptr cuchar,
-  mlen: csize,
+  mlen: culonglong,
   n: ptr cuchar,
   k: ptr cuchar
 ):cint {.sodium_import.}
@@ -957,7 +961,7 @@ proc crypto_stream_xor*(nonce, key, msg: string): string =
   let
     c = cpt result
     m = cpt msg
-    mlen = cpsize msg
+    mlen = culen msg
     n = cpt nonce
     k = cpt key
     rc = crypto_stream_xor(c, m, mlen, n, k)
