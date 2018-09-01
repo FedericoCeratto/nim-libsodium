@@ -28,22 +28,22 @@ else:
 # helpers
 
 
-template cpt(target: string): expr =
+template cpt(target: string): untyped =
   cast[ptr cuchar](cstring(target))
 
-template cpsize(target: string): expr =
+template cpsize(target: string): untyped =
   csize(target.len)
 
-template culen(target: string): expr =
+template culen(target: string): untyped =
   culonglong(target.len)
 
-template zeroed*(length: int): expr =
+template zeroed*(length: int): untyped =
   ## Return a zeroed string
   repeat('\0', length)
 
 type SodiumError* = object of Exception
 
-template check_rc(rc: cint): expr =
+template check_rc(rc: cint): untyped =
   ## Expect return code to be 0, raise an exception otherwise
   if rc != 0:
     raise newException(SodiumError, "return code: $#" % $rc)
@@ -292,7 +292,7 @@ type
   CryptoBoxPublicKey = string
   CryptoBoxSecretKey = string
 
-template cpt(target: CryptoBoxPublicKey): expr =
+template cpt(target: CryptoBoxPublicKey): untyped =
   cast[ptr cuchar](cstring(target))
 
 
@@ -534,10 +534,10 @@ proc crypto_generichash(
 ):cint {.sodium_import.}
 
 proc crypto_generichash*(data: string, hashlen: int = crypto_generichash_BYTES().int,
-    key: string = nil): string =
+    key: string = ""): string =
   ## Generate a hash of "data" of len "hashlen" using an optional key
   ## hashlen defaults to crypto_generichash_BYTES
-  if key != nil:
+  if key != "":
     doAssert(crypto_generichash_KEYBYTES_MIN().int <= key.len)
     doAssert(key.len <= crypto_generichash_KEYBYTES_MAX().int)
 
@@ -551,7 +551,7 @@ proc crypto_generichash*(data: string, hashlen: int = crypto_generichash_BYTES()
     m = cpt data
     mlen = culen data
     k =
-      if key == nil: nil
+      if key == "": nil
       else: cpt key
 
     klen = cpsize key
@@ -587,7 +587,7 @@ proc new_generic_hash*(key: string, out_len: int = crypto_generichash_BYTES().in
   ## Create a new multipart hash, returns a GenericHash.
   ## The GenericHash is to be updated with .update()
   ## Upon calling .finalize() on it it will return a hash value of length "out_len"
-  if key != nil:
+  if key != "":
     doAssert crypto_generichash_KEYBYTES_MIN().int <= key.len
     doAssert key.len <= crypto_generichash_KEYBYTES_MAX().int
   doAssert crypto_generichash_BYTES_MIN().int <= out_len
@@ -597,7 +597,7 @@ proc new_generic_hash*(key: string, out_len: int = crypto_generichash_BYTES().in
   let
     state = cpt result.state
     k =
-      if key == nil: nil
+      if key == "": nil
       else: cpt key
     klen = cpsize key
     olen = csize out_len
@@ -806,7 +806,7 @@ proc new_crypto_auth_hmacsha256*(key: string): HMACSHA256State =
   let
     state = cpt result.state
     k =
-      if key == nil: nil
+      if key == "": nil
       else: cpt key
     klen = culen key
     rc = crypto_auth_hmacsha256_init(state, k, klen)
