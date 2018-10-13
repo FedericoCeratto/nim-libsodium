@@ -160,7 +160,6 @@ proc hex2bin*(data: string, ignore=""): string =
 # Authenticated encryption
 # https://download.libsodium.org/doc/secret-key_cryptography/authenticated_encryption.html
 
-
 proc crypto_secretbox_easy(
   c: ptr cuchar,
   m: ptr cuchar,
@@ -978,3 +977,22 @@ proc crypto_stream_keygen*(): string =
   result = newString crypto_stream_salsa20_KEYBYTES()
   let o = cpt result
   crypto_stream_keygen(o)
+
+# pwhash
+proc crypto_pwhash*(`out`: ptr cuchar; outlen: culonglong; passwd: cstring;
+                   passwdlen: culonglong; salt: ptr cuchar; opslimit: culonglong;
+                   memlimit: csize; alg: cint): cint {.sodium_import.}
+
+proc crypto_pwhash*(password, salt: string = "", outlen: int = 32): string =
+  result = newString(outlen)
+  let
+    c_out = cpt result 
+    c_outlen = outlen.culonglong
+    c_passwd = password.cstring
+    c_passwdlen = password.len.culonglong
+    c_salt = cpt salt
+    c_opslimit = crypto_pwhash_opslimit_min().culonglong
+    c_memlimit = crypto_pwhash_memlimit_min().csize
+    c_alg = crypto_pwhash_alg_default().cint
+  check_rc crypto_pwhash(c_out, c_outlen, c_passwd, c_passwdlen,
+      c_salt, c_opslimit, c_memlimit, c_alg)

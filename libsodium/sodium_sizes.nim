@@ -149,3 +149,10 @@ proc crypto_stream_xsalsa20_noncebytes*(): cint {.sodium_import.}
 proc crypto_verify_16_bytes*(): cint {.sodium_import.}
 proc crypto_verify_32_bytes*(): cint {.sodium_import.}
 proc crypto_verify_64_bytes*(): cint {.sodium_import.}
+proc crypto_pwhash_opslimit_min*(): cuint {.sodium_import.}
+proc crypto_pwhash_opslimit_max*(): cuint {.sodium_import.}
+proc crypto_pwhash_memlimit_min*(): cuint {.sodium_import.}
+proc crypto_pwhash_memlimit_max*(): cuint {.sodium_import.}
+proc crypto_pwhash_alg_default*(): cuint {.sodium_import.}
+proc crypto_pwhash_alg_argon2i13*(): cuint {.sodium_import.}
+proc crypto_pwhash_alg_argon2id13*(): cuint {.sodium_import.}
