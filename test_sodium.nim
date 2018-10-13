@@ -161,13 +161,13 @@ suite "hashing":
     #check bin2hex(h) == "3d76eda4eaf33f6bf73ab54a37e86e1a87a" &
     #  "fbe5fb803e727cbcb33c082f32035"
 
-  test "generic multipart hashing key = nil":
-    let ha = new_generic_hash(nil, 33)
+  test "generic multipart hashing key is empty":
+    let ha = new_generic_hash("", 33)
     ha.update("hello")
     skip()
-    #let h = ha.finalize()
-    #check bin2hex(h) == "1fc1d1cb09e15737e79c9a3a687bc751e07" &
-    #  "d151c2da09ecb65ea8b8b38c89b03af"
+    let h = ha.finalize()
+    check bin2hex(h) == "1fc1d1cb09e15737e79c9a3a687bc751e07" &
+      "d151c2da09ecb65ea8b8b38c89b03af"
 
   test "generic multipart hashing bad sizes":
     expect AssertionError:
