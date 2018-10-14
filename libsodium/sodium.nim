@@ -979,11 +979,14 @@ proc crypto_stream_keygen*(): string =
   crypto_stream_keygen(o)
 
 # pwhash
+# https://download.libsodium.org/doc/password_hashing/
 proc crypto_pwhash*(`out`: ptr cuchar; outlen: culonglong; passwd: cstring;
                    passwdlen: culonglong; salt: ptr cuchar; opslimit: culonglong;
                    memlimit: csize; alg: cint): cint {.sodium_import.}
 
-proc crypto_pwhash*(password, salt: string = "", outlen: int = 32): string =
+proc crypto_pwhash*(password, salt: string, outlen: int = 32,
+    opslimit = crypto_pwhash_opslimit_moderate(), 
+    memlimit = crypto_pwhash_memlimit_moderate()): string =
   result = newString(outlen)
   let
     c_out = cpt result 
@@ -991,8 +994,8 @@ proc crypto_pwhash*(password, salt: string = "", outlen: int = 32): string =
     c_passwd = password.cstring
     c_passwdlen = password.len.culonglong
     c_salt = cpt salt
-    c_opslimit = crypto_pwhash_opslimit_min().culonglong
-    c_memlimit = crypto_pwhash_memlimit_min().csize
+    c_opslimit = opslimit.culonglong
+    c_memlimit = memlimit.csize
     c_alg = crypto_pwhash_alg_default().cint
   check_rc crypto_pwhash(c_out, c_outlen, c_passwd, c_passwdlen,
       c_salt, c_opslimit, c_memlimit, c_alg)
