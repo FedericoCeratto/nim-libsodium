@@ -3,8 +3,9 @@
 Nim wrapper for the libsodium library
 
 image:https://travis-ci.org/FedericoCeratto/nim-libsodium.svg?branch=master["Build Status", link="https://travis-ci.org/FedericoCeratto/nim-libsodium"]
-image:https://circleci.com/gh/FedericoCeratto/nim-libsodium.svg?style=svg["CircleCI", link="https://circleci.com/gh/FedericoCeratto/nim-libsodium"]
-image:https://img.shields.io/badge/status-alpha-orange.svg[badge]
+image:https://img.shields.io/badge/status-beta-orange.svg[badge]
+image:https://img.shields.io/github/tag/FedericoCeratto/nim-libsodium.svg[tags]
+image:https://img.shields.io/badge/License-LGPL%20v3-blue.svg[License]
 
 
 WARNING: This library is under development and has not been reviewed by 3rd parties
@@ -19,13 +20,9 @@ WARNING: This library is under development and has not been reviewed by 3rd part
 
 ### Usage
 
-Refer to the link:https://download.libsodium.org/doc/index.html[official libsodium documentation] 
+Refer to the link:https://download.libsodium.org/doc/index.html[official libsodium documentation]
 
-and the generated documentation for the
-link:https://federicoceratto.github.io/nim-libsodium/docs/0.1.0/sodium.html[sodium]
-and
-link:https://federicoceratto.github.io/nim-libsodium/docs/0.1.0/sodium_sizes.html[sodium_sizes]
-modules
+and the http://federicoceratto.github.io/nim-libsodium/0.4.1/theindex.html[module documentation]
 
 [source,bash]
 ----
@@ -38,11 +35,11 @@ nimble install libsodium
 import libsodium.sodium
 import libsodium.sodium_sizes
 
-let 
-  msg = "hello and goodbye" 
-  (pk, sk) = crypto_box_keypair() 
-  nonce = randombytes(crypto_box_NONCEBYTES()) 
-  ciphertext = crypto_box_easy(msg, nonce, pk, sk) 
+let
+  msg = "hello and goodbye"
+  (pk, sk) = crypto_box_keypair()
+  nonce = randombytes(crypto_box_NONCEBYTES())
+  ciphertext = crypto_box_easy(msg, nonce, pk, sk)
 
 ----
 
