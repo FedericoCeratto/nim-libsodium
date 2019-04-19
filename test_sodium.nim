@@ -66,6 +66,10 @@ suite "basics":
 
 suite "authenticated encryption":
 
+  test "crypto_secretbox_keygen":
+    let k = crypto_secretbox_keygen()
+    check k.len == crypto_secretbox_KEYBYTES()
+
   test "crypto_secretbox_easy crypto_secretbox_open_easy":
     let
       key = repeat('k', crypto_secretbox_KEYBYTES())

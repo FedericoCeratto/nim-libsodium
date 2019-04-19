@@ -161,6 +161,16 @@ proc hex2bin*(data: string, ignore=""): string =
 # https://download.libsodium.org/doc/secret-key_cryptography/authenticated_encryption.html
 
 
+#void crypto_secretbox_keygen(unsigned char k[crypto_secretbox_KEYBYTES]);
+
+proc crypto_secretbox_keygen(k: ptr cuchar) {.sodium_import.}
+
+proc crypto_secretbox_keygen*(): string =
+  ## Generates a random key of length `crypto_secretbox_KEYBYTES`
+  result = newString crypto_secretbox_KEYBYTES()
+  let c_key = cpt result
+  crypto_secretbox_keygen(c_key)
+
 proc crypto_secretbox_easy(
   c: ptr cuchar,
   m: ptr cuchar,
@@ -172,6 +182,13 @@ proc crypto_secretbox_easy(
 proc crypto_secretbox_easy*(key: string, msg: string): string =
   ## Encrypt + sign a variable len string with a preshared key
   ## A random nonce is generated from /dev/urandom and prepended to the output
+  runnableExamples:
+    let
+      msg = "hello there"
+      key = crypto_secretbox_keygen()
+      ciphertext = crypto_secretbox_easy(key, msg)
+      decrypted = crypto_secretbox_open_easy(key, ciphertext)
+    assert decrypted == msg
 
   assert key.len == crypto_secretbox_KEYBYTES()
   let nonce = randombytes(crypto_secretbox_NONCEBYTES().int)
