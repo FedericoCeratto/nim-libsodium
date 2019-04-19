@@ -862,9 +862,9 @@ proc crypto_stream_salsa20(
 
 proc crypto_stream_salsa20*(nonce, key: string, length: int): string =
   ## Salsa20 stream cypher.
-  ## `nonce` requires lenght of crypto_stream_salsa20_NONCEBYTES (64 bits)
+  ## `nonce` requires length of crypto_stream_salsa20_NONCEBYTES (64 bits)
   ## `key` requires crypto_stream_salsa20_KEYBYTES (256 bits)
-  ## Returns `lenght` bytes.
+  ## Returns `length` bytes.
   doAssert nonce.len == crypto_stream_salsa20_NONCEBYTES()
   doAssert key.len == crypto_stream_salsa20_KEYBYTES()
   result = newString length
@@ -887,7 +887,7 @@ proc crypto_stream_salsa20_xor(
 
 proc crypto_stream_salsa20_xor*(nonce, key, msg: string): string =
   ## encrypts `msg`.
-  ## `nonce` requires lenght of crypto_stream_salsa20_NONCEBYTES
+  ## `nonce` requires length of crypto_stream_salsa20_NONCEBYTES
   ## `key` requires crypto_stream_salsa20_KEYBYTES
   result = newString msg.len
   let
@@ -911,7 +911,7 @@ proc crypto_stream_salsa20_xor_ic(
 
 proc crypto_stream_salsa20_xor_ic*(nonce, key, msg: string, ic: uint): string =
   ## encrypts `msg`.
-  ## `nonce` requires lenght of crypto_stream_salsa20_NONCEBYTES
+  ## `nonce` requires length of crypto_stream_salsa20_NONCEBYTES
   ## `key` requires crypto_stream_salsa20_KEYBYTES
   ## `ic` is the initial value for the block counter.
   result = newString msg.len
@@ -947,9 +947,9 @@ proc crypto_stream(
 
 proc crypto_stream*(nonce, key: string, length: int): string =
   ## XSalsa20 stream cypher.
-  ## `nonce` requires lenght of crypto_stream_xsalsa20_NONCEBYTES (192 bits)
+  ## `nonce` requires length of crypto_stream_xsalsa20_NONCEBYTES (192 bits)
   ## `key` requires crypto_stream_xsalsa20_KEYBYTES (256 bits)
-  ## Returns `lenght` bytes.
+  ## Returns `length` bytes.
   doAssert nonce.len == crypto_stream_xsalsa20_NONCEBYTES()
   doAssert key.len == crypto_stream_xsalsa20_KEYBYTES()
   result = newString length
@@ -972,7 +972,7 @@ proc crypto_stream_xor(
 
 proc crypto_stream_xor*(nonce, key, msg: string): string =
   ## encrypts `msg` using XSalsa20.
-  ## `nonce` requires lenght of crypto_stream_xsalsa20_NONCEBYTES
+  ## `nonce` requires length of crypto_stream_xsalsa20_NONCEBYTES
   ## `key` requires crypto_stream_xsalsa20_KEYBYTES
   result = newString msg.len
   let
