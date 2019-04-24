@@ -197,6 +197,19 @@ suite "hashing":
     check h == h2
     check h != h_using_k2
 
+suite "password hashing":
+  const Password = "Correct Horse Battery Staple"
+  test "password hashing":
+    let salt = randombytes crypto_pwhash_saltbytes()
+    for i in PasswordHashingAlgorithm:
+      let h = crypto_pwhash(Password, cast[seq[byte]](salt), 32, i)
+      check h.len == 32
+
+  test "password hashing verify":
+    let
+      h = crypto_pwhash_str(Password)
+    check crypto_pwhash_str_verify(h, Password)
+
 test "Diffie-Hellman function":
 
   test "scalarmult base":

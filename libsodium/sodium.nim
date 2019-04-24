@@ -671,6 +671,115 @@ proc generate_key_for_short_hash*(): ShortHashKey =
   return randombytes(crypto_shorthash_KEYBYTES())
 
 
+# Password hashing
+# https://download.libsodium.org/doc/password_hashing
+
+type
+  PasswordHashingAlgorithm* = enum
+    ## Password hashing algorithm
+    phaDefault    ## Currently recommended algorithm, can change from one version
+                 ## of libsodium to another.
+    phaArgon2i13  ## Version 1.3 of the Argon2i algorithm
+    phaArgon2id13 ## Version 1.3 of the Argon2id algorithm, available since
+                 ## libsodium 1.0.13
+
+proc crypto_pwhash(
+  `out`: ptr cuchar,
+  outlen: culonglong,
+  passwd: cstring,
+  passwdlen: culonglong,
+  salt: ptr cuchar,
+  opslimit: culonglong,
+  memlimit: csize,
+  alg: cint
+):cint {.sodium_import.}
+
+proc crypto_pwhash_alg_default(): cint {.sodium_import.}
+proc crypto_pwhash_alg_argon2i13(): cint {.sodium_import.}
+proc crypto_pwhash_alg_argon2id13(): cint {.sodium_import.}
+proc crypto_pwhash_strprefix*(): cstring {.sodium_import.}
+
+proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
+                    alg = phaDefault,
+                    opslimit = crypto_pwhash_opslimit_moderate().Natural,
+                    memlimit = crypto_pwhash_memlimit_moderate().Natural
+                   ): seq[byte] =
+  doAssert salt.len == crypto_pwhash_saltbytes()
+  doAssert passwd.len.cuint >= crypto_pwhash_passwd_min() and
+           passwd.len.cuint <= crypto_pwhash_passwd_max()
+  doAssert outlen.cuint >= crypto_pwhash_bytes_min() and
+           outlen.cuint <= crypto_pwhash_bytes_max()
+
+  newSeq[byte](result, outlen)
+  let
+    cout = cast[ptr cuchar](addr result[0]) # This is safe, since Nim's byte is
+                                            # an uint8, just like cuchar
+    coutlen = outlen.culonglong
+    cpasswd = passwd.cstring
+    cpasswdlen = passwd.len.culonglong
+    # Same as above, also, since this is a const param, we can be sure that
+    # the array won't get modified, justifying the use of `unsafeAddr`
+    csalt = cast[ptr cuchar](unsafeAddr salt[0])
+    copslimit = opslimit.culonglong
+    cmemlimit = memlimit.csize
+    calg = case alg
+           of phaDefault: crypto_pwhash_alg_default()
+           of phaArgon2i13: crypto_pwhash_alg_argon2i13()
+           of phaArgon2id13: crypto_pwhash_alg_argon2id13()
+
+  check_rc crypto_pwhash(cout, coutlen, cpasswd, cpasswdlen, csalt, copslimit,
+                         cmemlimit, calg)
+
+proc crypto_pwhash_str(
+  `out`: cstring,
+  passwd: cstring,
+  passwdlen: culonglong,
+  opslimit: culonglong,
+  memlimit: csize
+): cint {.sodium_import.}
+
+proc crypto_pwhash_str*(passwd: string,
+                        opslimit = crypto_pwhash_opslimit_moderate().Natural,
+                        memlimit = crypto_pwhash_memlimit_moderate().Natural
+                       ): string =
+  doAssert passwd.len.cuint >= crypto_pwhash_passwd_min() and
+           passwd.len.cuint <= crypto_pwhash_passwd_max()
+
+  result = newString crypto_pwhash_strbytes()
+
+  let
+    cout = cstring result
+    cpasswd = cstring passwd
+    cpasswdlen = passwd.len.culonglong
+    copslimit = opslimit.culonglong
+    cmemlimit = memlimit.csize
+
+  check_rc crypto_pwhash_str(cout, cpasswd, cpasswdlen, copslimit, cmemlimit)
+
+  result.setLen cout.len
+
+proc crypto_pwhash_str_verify(
+  str, passwd: cstring,
+  passwdlen: culonglong
+): cint {.sodium_import.}
+
+proc crypto_pwhash_str_verify*(str, passwd: string): bool {.inline.} =
+  result = crypto_pwhash_str_verify(cstring str, cstring passwd,
+                                    passwd.len.culonglong) == 0
+
+proc crypto_pwhash_str_needs_rehash(
+  str: cstring,
+  opslimit: culonglong,
+  memlimit: csize
+): cint {.sodium_import.}
+
+proc crypto_pwhash_str_needs_rehash*(str: string,
+                                     opslimit = crypto_pwhash_opslimit_moderate().Natural,
+                                     memlimit = crypto_pwhash_memlimit_moderate().Natural
+                                    ): int {.inline.} =
+  int crypto_pwhash_str_needs_rehash(cstring str, culonglong opslimit,
+                                     csize memlimit)
+
 # Diffie-Hellman function
 # https://download.libsodium.org/doc/advanced/scalar_multiplication.html
 
