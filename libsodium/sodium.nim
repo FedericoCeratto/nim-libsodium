@@ -678,10 +678,10 @@ type
   PasswordHashingAlgorithm* = enum
     ## Password hashing algorithm
     phaDefault    ## Currently recommended algorithm, can change from one version
-                 ## of libsodium to another.
+                  ## of libsodium to another.
     phaArgon2i13  ## Version 1.3 of the Argon2i algorithm
     phaArgon2id13 ## Version 1.3 of the Argon2id algorithm, available since
-                 ## libsodium 1.0.13
+                  ## libsodium 1.0.13
 
 proc crypto_pwhash(
   `out`: ptr cuchar,
@@ -774,8 +774,8 @@ proc crypto_pwhash_str_needs_rehash(
 ): cint {.sodium_import.}
 
 proc crypto_pwhash_str_needs_rehash*(str: string,
-                                     opslimit = crypto_pwhash_opslimit_moderate().Natural,
-                                     memlimit = crypto_pwhash_memlimit_moderate().Natural
+                                     opslimit = crypto_pwhash_opslimit_moderate(),
+                                     memlimit = crypto_pwhash_memlimit_moderate()
                                     ): int {.inline.} =
   int crypto_pwhash_str_needs_rehash(cstring str, culonglong opslimit,
                                      csize memlimit)
