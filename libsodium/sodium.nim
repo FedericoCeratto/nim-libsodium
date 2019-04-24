@@ -701,14 +701,14 @@ proc crypto_pwhash_strprefix*(): cstring {.sodium_import.}
 
 proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
                     alg = phaDefault,
-                    opslimit = crypto_pwhash_opslimit_moderate().Natural,
-                    memlimit = crypto_pwhash_memlimit_moderate().Natural
+                    opslimit = crypto_pwhash_opslimit_moderate(),
+                    memlimit = crypto_pwhash_memlimit_moderate()
                    ): seq[byte] =
   doAssert salt.len == crypto_pwhash_saltbytes()
-  doAssert passwd.len.cuint >= crypto_pwhash_passwd_min() and
-           passwd.len.cuint <= crypto_pwhash_passwd_max()
-  doAssert outlen.cuint >= crypto_pwhash_bytes_min() and
-           outlen.cuint <= crypto_pwhash_bytes_max()
+  doAssert passwd.len.csize >= crypto_pwhash_passwd_min() and
+           passwd.len.csize <= crypto_pwhash_passwd_max()
+  doAssert outlen.csize >= crypto_pwhash_bytes_min() and
+           outlen.csize <= crypto_pwhash_bytes_max()
 
   newSeq[byte](result, outlen)
   let
@@ -739,11 +739,11 @@ proc crypto_pwhash_str(
 ): cint {.sodium_import.}
 
 proc crypto_pwhash_str*(passwd: string,
-                        opslimit = crypto_pwhash_opslimit_moderate().Natural,
-                        memlimit = crypto_pwhash_memlimit_moderate().Natural
+                        opslimit = crypto_pwhash_opslimit_moderate(),
+                        memlimit = crypto_pwhash_memlimit_moderate()
                        ): string =
-  doAssert passwd.len.cuint >= crypto_pwhash_passwd_min() and
-           passwd.len.cuint <= crypto_pwhash_passwd_max()
+  doAssert passwd.len.csize >= crypto_pwhash_passwd_min() and
+           passwd.len.csize <= crypto_pwhash_passwd_max()
 
   result = newString crypto_pwhash_strbytes()
 
