@@ -699,6 +699,12 @@ proc crypto_pwhash_alg_argon2i13(): cint {.sodium_import.}
 proc crypto_pwhash_alg_argon2id13(): cint {.sodium_import.}
 proc crypto_pwhash_strprefix*(): cstring {.sodium_import.}
 
+proc toCAlg(alg: PasswordHashingAlgorithm): cint =
+  case alg
+  of phaDefault: crypto_pwhash_alg_default()
+  of phaArgon2i13: crypto_pwhash_alg_argon2i13()
+  of phaArgon2id13: crypto_pwhash_alg_argon2id13()
+
 proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
                     alg = phaDefault,
                     opslimit = crypto_pwhash_opslimit_moderate(),
@@ -738,31 +744,28 @@ proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
     csalt = cast[ptr cuchar](unsafeAddr salt[0])
     copslimit = opslimit.culonglong
     cmemlimit = memlimit.csize
-    calg = case alg
-           of phaDefault: crypto_pwhash_alg_default()
-           of phaArgon2i13: crypto_pwhash_alg_argon2i13()
-           of phaArgon2id13: crypto_pwhash_alg_argon2id13()
-
+    calg = alg.toCAlg
   check_rc crypto_pwhash(cout, coutlen, cpasswd, cpasswdlen, csalt, copslimit,
                          cmemlimit, calg)
 
-proc crypto_pwhash_str(
+proc crypto_pwhash_str_alg(
   `out`: cstring,
   passwd: cstring,
   passwdlen: culonglong,
   opslimit: culonglong,
-  memlimit: csize
+  memlimit: csize,
+  alg: cint
 ): cint {.sodium_import.}
 
-proc crypto_pwhash_str*(passwd: string,
+proc crypto_pwhash_str*(passwd: string, alg = phaDefault,
                         opslimit = crypto_pwhash_opslimit_moderate(),
                         memlimit = crypto_pwhash_memlimit_moderate()
                        ): string =
   ## Returns an ASCII encoded string which includes:
-  ## * the result of a memory-hard, CPU-intensive hash function
-  ##   applied to the password ``passwd``. The password length must be in
-  ##   the range between ``crypto_pwhash_passwd_min()`` and
-  ##   ``crypto_pwhash_passwd_max()``
+  ## * the result of the chosen hash algorithm ``alg`` applied to the
+  ##   password ``passwd`` (the default is a memory-hard, CPU-intensive hash
+  ##   function). The password length must be in the range
+  ##   between ``crypto_pwhash_passwd_min()`` and ``crypto_pwhash_passwd_max()``
   ## * the automatically generated salt used for the previous computation.
   ## * the other parameters required to verify the password.
   ##
@@ -789,8 +792,10 @@ proc crypto_pwhash_str*(passwd: string,
     cpasswdlen = passwd.len.culonglong
     copslimit = opslimit.culonglong
     cmemlimit = memlimit.csize
+    calg = alg.toCAlg()
 
-  check_rc crypto_pwhash_str(cout, cpasswd, cpasswdlen, copslimit, cmemlimit)
+  check_rc crypto_pwhash_str_alg(cout, cpasswd, cpasswdlen, copslimit, cmemlimit,
+                                 calg)
 
   result.setLen cout.len
 

@@ -199,16 +199,21 @@ suite "hashing":
 
 suite "password hashing":
   const Password = "Correct Horse Battery Staple"
-  test "password hashing":
-    let salt = randombytes crypto_pwhash_saltbytes()
-    for i in PasswordHashingAlgorithm:
+  let salt = randombytes crypto_pwhash_saltbytes()
+  for i in PasswordHashingAlgorithm:
+    test "password hashing (" & $i & ")":
       let h = crypto_pwhash(Password, cast[seq[byte]](salt), 32, i)
       check h.len == 32
 
-  test "password hashing verify":
-    let
-      h = crypto_pwhash_str(Password)
-    check crypto_pwhash_str_verify(h, Password)
+  for i in PasswordHashingAlgorithm:
+    test "password hashing & verification (" & $i & ")":
+        let h = crypto_pwhash_str(Password, i)
+        check crypto_pwhash_str_verify(h, Password)
+
+  test "password rehash required":
+    let h = crypto_pwhash_str(Password, opslimit = crypto_pwhash_opslimit_min(),
+                              memlimit = crypto_pwhash_memlimit_min())
+    check crypto_pwhash_str_needs_rehash(h) > 0
 
 test "Diffie-Hellman function":
 
