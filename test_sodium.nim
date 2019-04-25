@@ -215,6 +215,10 @@ suite "password hashing":
                               memlimit = crypto_pwhash_memlimit_min())
     check crypto_pwhash_str_needs_rehash(h) > 0
 
+  test "password no needs rehash":
+    let h = crypto_pwhash_str(Password)
+    check crypto_pwhash_str_needs_rehash(h) == 0
+
 test "Diffie-Hellman function":
 
   test "scalarmult base":
