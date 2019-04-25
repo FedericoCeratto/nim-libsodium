@@ -671,6 +671,175 @@ proc generate_key_for_short_hash*(): ShortHashKey =
   return randombytes(crypto_shorthash_KEYBYTES())
 
 
+# Password hashing
+# https://download.libsodium.org/doc/password_hashing
+
+type
+  PasswordHashingAlgorithm* = enum
+    ## Password hashing algorithm
+    phaDefault    ## Currently recommended algorithm, can change from one version
+                  ## of libsodium to another.
+    phaArgon2i13  ## Version 1.3 of the Argon2i algorithm
+    phaArgon2id13 ## Version 1.3 of the Argon2id algorithm, available since
+                  ## libsodium 1.0.13
+
+proc crypto_pwhash(
+  `out`: ptr cuchar,
+  outlen: culonglong,
+  passwd: cstring,
+  passwdlen: culonglong,
+  salt: ptr cuchar,
+  opslimit: culonglong,
+  memlimit: csize,
+  alg: cint
+):cint {.sodium_import.}
+
+proc crypto_pwhash_alg_default(): cint {.sodium_import.}
+proc crypto_pwhash_alg_argon2i13(): cint {.sodium_import.}
+proc crypto_pwhash_alg_argon2id13(): cint {.sodium_import.}
+proc crypto_pwhash_strprefix*(): cstring {.sodium_import.}
+
+proc toCAlg(alg: PasswordHashingAlgorithm): cint =
+  case alg
+  of phaDefault: crypto_pwhash_alg_default()
+  of phaArgon2i13: crypto_pwhash_alg_argon2i13()
+  of phaArgon2id13: crypto_pwhash_alg_argon2id13()
+
+proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
+                    alg = phaDefault,
+                    opslimit = crypto_pwhash_opslimit_moderate(),
+                    memlimit = crypto_pwhash_memlimit_moderate()
+                   ): seq[byte] =
+  ## Derive an ``outlen`` long key from a password ``passwd`` whose length is in
+  ## between ``crypto_pwhash_passwd_min()`` and ``crypto_pwhash_passwd_max()``
+  ## and a salt of fixed length of ``crypto_pwhash_saltbytes()``.
+  ##
+  ## ``outlen`` should be at least ``crypto_pwhash_bytes_min()`` and at most
+  ## ``crypto_pwhash_bytes_max()``
+  ##
+  ## See also:
+  ## * `crypto_pwhash_str proc <#crypto_pwhash_str,string>`_
+  runnableExamples:
+    import sodium_sizes
+    const Password = "Correct Horse Battery Staple"
+
+    var salt = cast[seq[byte]](randombytes crypto_pwhash_saltbytes().int)
+    let key = crypto_pwhash(Password, salt, crypto_box_seedbytes())
+
+  doAssert salt.len == crypto_pwhash_saltbytes()
+  doAssert passwd.len.csize >= crypto_pwhash_passwd_min() and
+           passwd.len.csize <= crypto_pwhash_passwd_max()
+  doAssert outlen.csize >= crypto_pwhash_bytes_min() and
+           outlen.csize <= crypto_pwhash_bytes_max()
+
+  newSeq[byte](result, outlen)
+  let
+    cout = cast[ptr cuchar](addr result[0]) # This is safe, since Nim's byte is
+                                            # an uint8, just like cuchar
+    coutlen = outlen.culonglong
+    cpasswd = passwd.cstring
+    cpasswdlen = passwd.len.culonglong
+    # Same as above, also, since this is a const param, we can be sure that
+    # the array won't get modified, justifying the use of `unsafeAddr`
+    csalt = cast[ptr cuchar](unsafeAddr salt[0])
+    copslimit = opslimit.culonglong
+    cmemlimit = memlimit.csize
+    calg = alg.toCAlg
+  check_rc crypto_pwhash(cout, coutlen, cpasswd, cpasswdlen, csalt, copslimit,
+                         cmemlimit, calg)
+
+proc crypto_pwhash_str_alg(
+  `out`: cstring,
+  passwd: cstring,
+  passwdlen: culonglong,
+  opslimit: culonglong,
+  memlimit: csize,
+  alg: cint
+): cint {.sodium_import.}
+
+proc crypto_pwhash_str*(passwd: string, alg = phaDefault,
+                        opslimit = crypto_pwhash_opslimit_moderate(),
+                        memlimit = crypto_pwhash_memlimit_moderate()
+                       ): string =
+  ## Returns an ASCII encoded string which includes:
+  ## * the result of the chosen hash algorithm ``alg`` applied to the
+  ##   password ``passwd`` (the default is a memory-hard, CPU-intensive hash
+  ##   function). The password length must be in the range
+  ##   between ``crypto_pwhash_passwd_min()`` and ``crypto_pwhash_passwd_max()``
+  ## * the automatically generated salt used for the previous computation.
+  ## * the other parameters required to verify the password.
+  ##
+  ## The returned string includes only ASCII characters and can be safely
+  ## stored into SQL databases and other data stores.
+  ##
+  ## See also:
+  ## * `crypto_pwhash proc <#crypto_pwhash,string,openArray[byte],Natural>`_
+  ## * `crypto_pwhash_str_verify proc <#crypto_pwhash_str_verify,string,string>`_
+  runnableExamples:
+    const Password = "Correct Horse Battery Staple"
+    let hashed_password = crypto_pwhash_str(Password)
+
+    doAssert crypto_pwhash_str_verify(hashed_password, Password)
+
+  doAssert passwd.len.csize >= crypto_pwhash_passwd_min() and
+           passwd.len.csize <= crypto_pwhash_passwd_max()
+
+  result = newString crypto_pwhash_strbytes()
+
+  let
+    cout = cstring result
+    cpasswd = cstring passwd
+    cpasswdlen = passwd.len.culonglong
+    copslimit = opslimit.culonglong
+    cmemlimit = memlimit.csize
+    calg = alg.toCAlg()
+
+  check_rc crypto_pwhash_str_alg(cout, cpasswd, cpasswdlen, copslimit, cmemlimit,
+                                 calg)
+
+  result.setLen cout.len
+
+proc crypto_pwhash_str_verify(
+  str, passwd: cstring,
+  passwdlen: culonglong
+): cint {.sodium_import.}
+
+proc crypto_pwhash_str_verify*(str, passwd: string): bool {.inline.} =
+  ## Verifies that str is a valid password verification string (as generated by
+  ## ``crypto_pwhash_str()``) for ``passwd``
+  ##
+  ## See also:
+  ## * `crypto_pwhash_str proc <#crypto_pwhash_str,string>`_
+  result = crypto_pwhash_str_verify(cstring str, cstring passwd,
+                                    passwd.len.culonglong) == 0
+
+proc crypto_pwhash_str_needs_rehash(
+  str: cstring,
+  opslimit: culonglong,
+  memlimit: csize
+): cint {.sodium_import.}
+
+proc crypto_pwhash_str_needs_rehash*(str: string,
+                                     opslimit = crypto_pwhash_opslimit_moderate(),
+                                     memlimit = crypto_pwhash_memlimit_moderate()
+                                    ): int {.inline.} =
+  ## Check if a password verification string ``str`` matches the parameters
+  ## ``opslimit`` and ``memlimit``, and the current default algorithm.
+  ##
+  ## The functions returns:
+  ## * `1` if the string appears to be correct, but doesn't match the given
+  ##   parameters. In that situation, applications may want to compute
+  ##   a new hash using the current parameters the next time the user logs in.
+  ## * `0` if the parameters already match the given ones.
+  ## * `-1` on error. If it happens, applications may want to compute
+  ##   a correct hash the next time the user logs in.
+  ##
+  ## See also:
+  ## * `crypto_pwhash_str proc <#crypto_pwhash_str,string>`_
+  ## * `crypto_pwhash_str_verify proc <#crypto_pwhash_str_verify,string,string>`_
+  int crypto_pwhash_str_needs_rehash(cstring str, culonglong opslimit,
+                                     csize memlimit)
+
 # Diffie-Hellman function
 # https://download.libsodium.org/doc/advanced/scalar_multiplication.html
 
