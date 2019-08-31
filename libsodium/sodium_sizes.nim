@@ -96,6 +96,10 @@ proc crypto_hash_sha256_bytes*(): cint {.sodium_import.}
 proc crypto_hash_sha256_statebytes*(): cint {.sodium_import.}
 proc crypto_hash_sha512_bytes*(): cint {.sodium_import.}
 proc crypto_hash_sha512_statebytes*(): cint {.sodium_import.}
+proc crypto_kx_publickeybytes*(): cint {.sodium_import.}
+proc crypto_kx_secretkeybytes*(): cint {.sodium_import.}
+proc crypto_kx_seedbytes*(): cint {.sodium_import.}
+proc crypto_kx_sessionkeybytes*(): cint {.sodium_import.}
 proc crypto_onetimeauth_bytes*(): cint {.sodium_import.}
 proc crypto_onetimeauth_keybytes*(): cint {.sodium_import.}
 proc crypto_onetimeauth_poly1305_bytes*(): cint {.sodium_import.}
