@@ -1236,7 +1236,7 @@ proc crypto_kx_server_session_keys*(server_pk, server_sk, client_pk: string): (C
 
 
 # Secret stream
-# https://download.libsodium.org/doc/key_exchange.html
+# https://download.libsodium.org/doc/secret-key_cryptography/secretstream
 
 type
   SecretStreamXChaCha20Poly1305Key* = string
