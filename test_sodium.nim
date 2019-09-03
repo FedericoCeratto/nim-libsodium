@@ -473,3 +473,34 @@ suite "key exchange":
       cipher2 = crypto_secretbox_easy(stx, "hello from server")
       plain2 = crypto_secretbox_open_easy(crx, cipher2)
     check plain2 == "hello from server"
+
+
+suite "secretstream_xchacha20poly1305":
+
+  test "sizes":
+    check crypto_secretstream_xchacha20poly1305_KEYBYTES() * 8 == 256
+    check crypto_secretstream_xchacha20poly1305_HEADERBYTES() > 0
+  
+  test "keygen":
+    let key = crypto_secretstream_xchacha20poly1305_keygen()
+    check key.len == crypto_secretstream_xchacha20poly1305_KEYBYTES()
+
+  test "encrypt and decrypt":
+    let
+      key = crypto_secretstream_xchacha20poly1305_keygen()
+      (push_state, header) = crypto_secretstream_xchacha20poly1305_init_push(key)
+      pull_state = crypto_secretstream_xchacha20poly1305_init_pull(header, key)
+      plain1 = "Hello, there"
+      plain2 = "this is message 2"
+      cipher1 = push_state.push(plain1, "", crypto_secretstream_xchacha20poly1305_tag_message())
+      cipher2 = push_state.push(plain2, "", crypto_secretstream_xchacha20poly1305_tag_final())
+      (msg1, tag1) = pull_state.pull(cipher1, "")
+      (msg2, tag2) = pull_state.pull(cipher2, "")
+    
+    check cipher1.len == plain1.len + crypto_secretstream_xchacha20poly1305_ABYTES()
+    check cipher2.len == plain2.len + crypto_secretstream_xchacha20poly1305_ABYTES()
+    check msg1 == plain1
+    check tag1 == crypto_secretstream_xchacha20poly1305_tag_message()
+    check msg2 == plain2
+    check tag2 == crypto_secretstream_xchacha20poly1305_tag_final()
+    
