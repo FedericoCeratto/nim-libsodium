@@ -426,3 +426,50 @@ suite "stream ciphers":
 
     let decrypted = crypto_stream_xor(nonce, key, c)
     check decrypted == "hello there"
+
+suite "key exchange":
+
+  test "kx sizes":
+    check crypto_kx_PUBLICKEYBYTES() * 8 == 256
+    check crypto_kx_SECRETKEYBYTES() * 8 == 256
+    check crypto_kx_SESSIONKEYBYTES() * 8 == 256
+  
+  test "crypto_kx_keypair":
+    let (pk, sk) = crypto_kx_keypair()
+    check pk.len == crypto_kx_PUBLICKEYBYTES()
+    check sk.len == crypto_kx_SECRETKEYBYTES()
+  
+  test "crypto_kx_client_session_keys":
+    let
+      (cpub, csec) = crypto_kx_keypair() # client
+      (spub, ssec) = crypto_kx_keypair() # server
+      (rx, tx) = crypto_kx_client_session_keys(cpub, csec, spub)
+    check rx.len == crypto_kx_SESSIONKEYBYTES()
+    check tx.len == crypto_kx_SESSIONKEYBYTES()
+  
+  test "crypto_kx_server_session_keys":
+    let
+      (cpub, csec) = crypto_kx_keypair() # client
+      (spub, ssec) = crypto_kx_keypair() # server
+      (rx, tx) = crypto_kx_server_session_keys(spub, ssec, cpub)
+    check rx.len == crypto_kx_SESSIONKEYBYTES()
+    check tx.len == crypto_kx_SESSIONKEYBYTES()
+  
+  test "session key with crypto_secretbox":
+    let
+      (cpub, csec) = crypto_kx_keypair() # client
+      (spub, ssec) = crypto_kx_keypair() # server
+      (crx, ctx) = crypto_kx_client_session_keys(cpub, csec, spub)
+      (srx, stx) = crypto_kx_server_session_keys(spub, ssec, cpub)
+    
+    # client to server
+    let
+      cipher1 = crypto_secretbox_easy(ctx, "hello from client")
+      plain1 = crypto_secretbox_open_easy(srx, cipher1)
+    check plain1 == "hello from client"
+    
+    # server to client
+    let
+      cipher2 = crypto_secretbox_easy(stx, "hello from server")
+      plain2 = crypto_secretbox_open_easy(crx, cipher2)
+    check plain2 == "hello from server"
