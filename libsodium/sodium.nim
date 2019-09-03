@@ -1164,3 +1164,72 @@ proc crypto_stream_keygen*(): string =
   result = newString crypto_stream_salsa20_KEYBYTES()
   let o = cpt result
   crypto_stream_keygen(o)
+
+# Key exchange
+# https://download.libsodium.org/doc/key_exchange.html
+
+type
+  CryptoKxPublicKey = string
+  CryptoKxSecretKey = string
+  CryptoKxRxKey = string
+  CryptoKxTxKey = string
+
+#TODO crypto_kx_seed_keypair
+
+proc crypto_kx_keypair(
+  pk: ptr cuchar,
+  sk: ptr cuchar
+):cint {.sodium_import.}
+
+proc crypto_kx_keypair*(): (CryptoKxPublicKey, CryptoKxSecretKey) =
+  result[0] = newString crypto_kx_PUBLICKEYBYTES()
+  result[1] = newString crypto_kx_SECRETKEYBYTES()
+  let
+    pk = cpt result[0]
+    sk = cpt result[1]
+  let rc = crypto_kx_keypair(pk, sk)
+  check_rc rc
+
+
+proc crypto_kx_client_session_keys(
+  rx: ptr cuchar,
+  tx: ptr cuchar,
+  client_pk: ptr cuchar,
+  client_sk: ptr cuchar,
+  server_pk: ptr cuchar,
+):cint {.sodium_import.}
+
+proc crypto_kx_client_session_keys*(client_pk, client_sk, server_pk: string): (CryptoKxRxKey, CryptoKxTxKey) =
+  ## Generate key exchange client keys
+  result[0] = newString crypto_kx_SESSIONKEYBYTES()
+  result[1] = newString crypto_kx_SESSIONKEYBYTES()
+  let
+    rx = cpt result[0]
+    tx = cpt result[1]
+    cpk = cpt client_pk
+    csk = cpt client_sk
+    spk = cpt server_pk
+    rc = crypto_kx_client_session_keys(rx, tx, cpk, csk, spk)
+  check_rc rc
+
+
+proc crypto_kx_server_session_keys(
+  rx: ptr cuchar,
+  tx: ptr cuchar,
+  server_pk: ptr cuchar,
+  server_sk: ptr cuchar,
+  client_pk: ptr cuchar,
+):cint {.sodium_import.}
+
+proc crypto_kx_server_session_keys*(server_pk, server_sk, client_pk: string): (CryptoKxRxKey, CryptoKxTxKey) =
+  ## Generate key exchange server keys
+  result[0] = newString crypto_kx_SESSIONKEYBYTES()
+  result[1] = newString crypto_kx_SESSIONKEYBYTES()
+  let
+    rx = cpt result[0]
+    tx = cpt result[1]
+    spk = cpt server_pk
+    ssk = cpt server_sk
+    cpk = cpt client_pk
+    rc = crypto_kx_server_session_keys(rx, tx, spk, ssk, cpk)
+  check_rc rc
