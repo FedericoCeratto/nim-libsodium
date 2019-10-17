@@ -1275,3 +1275,138 @@ proc crypto_kx_server_session_keys*(server_pk, server_sk, client_pk: string): (C
     cpk = cpt client_pk
     rc = crypto_kx_server_session_keys(rx, tx, spk, ssk, cpk)
   check_rc rc
+
+
+# Secret stream
+# https://download.libsodium.org/doc/secret-key_cryptography/secretstream
+
+type
+  SecretStreamXChaCha20Poly1305Key* = string
+  SecretStreamXChaCha20Poly1305Header* = string
+  SecretStreamXChaCha20Poly1305PushState* = tuple
+    state: string
+  SecretStreamXChaCha20Poly1305PullState* = tuple
+    state: string
+
+proc crypto_secretstream_xchacha20poly1305_keygen(
+  key: ptr cuchar,
+) {.sodium_import.}
+
+proc crypto_secretstream_xchacha20poly1305_keygen*(): SecretStreamXChaCha20Poly1305Key =
+  # Generate a key for secretstream functions
+  result = newString crypto_secretstream_xchacha20poly1305_KEYBYTES()
+  let
+    o = cpt result
+  crypto_secretstream_xchacha20poly1305_keygen(o)
+
+proc crypto_secretstream_xchacha20poly1305_tag_message*():cuchar {.sodium_import.}
+proc crypto_secretstream_xchacha20poly1305_tag_push*():cuchar {.sodium_import.}
+proc crypto_secretstream_xchacha20poly1305_tag_rekey*():cuchar {.sodium_import.}
+proc crypto_secretstream_xchacha20poly1305_tag_final*():cuchar {.sodium_import.}
+  
+
+proc crypto_secretstream_xchacha20poly1305_init_push(
+  state: ptr cuchar,
+  header: ptr cuchar,
+  key: ptr cuchar,
+):cint {.sodium_import.}
+
+proc crypto_secretstream_xchacha20poly1305_init_push*(key: SecretStreamXChaCha20Poly1305Key): (SecretStreamXChaCha20Poly1305PushState, SecretStreamXChaCha20Poly1305Header) =
+  ## Initialize encryption for a secret stream
+  let
+    state = (state: newString crypto_secretstream_xchacha20poly1305_statebytes(),)
+    header = newString crypto_secretstream_xchacha20poly1305_headerbytes()
+    c_state = cpt state.state
+    c_header = cpt header
+    k =
+      if key == "": nil
+      else: cpt key
+    rc = crypto_secretstream_xchacha20poly1305_init_push(c_state, c_header, k)
+  result = (state, header)
+  check_rc rc
+
+proc crypto_secretstream_xchacha20poly1305_init_pull(
+  state: ptr cuchar,
+  header: ptr cuchar,
+  key: ptr cuchar,
+):cint {.sodium_import.}
+
+proc crypto_secretstream_xchacha20poly1305_init_pull*(header: SecretStreamXChaCha20Poly1305Header, key: SecretStreamXChaCha20Poly1305Key): SecretStreamXChaCha20Poly1305PullState =
+  ## Initialize decryption for a secret stream
+  let
+    state = (state: newString crypto_secretstream_xchacha20poly1305_statebytes(),)
+    c_state = cpt state.state
+    c_header = cpt header
+    k =
+      if key == "": nil
+      else: cpt key
+    rc = crypto_secretstream_xchacha20poly1305_init_pull(c_state, c_header, k)
+  result = state
+  check_rc rc
+
+proc crypto_secretstream_xchacha20poly1305_push(
+  state: ptr cuchar,
+  outs: ptr cuchar,
+  outlen_p: ptr culonglong,
+  m: ptr cuchar,
+  mlen: culonglong,
+  ad: ptr cuchar,
+  adlen: culonglong,
+  tag: cuchar,
+):cint {.sodium_import.}
+
+proc push*(state: SecretStreamXChaCha20Poly1305PushState, msg, ad: string, tag: cuchar):string =
+  ## Perform crypto_secretstream_xchacha20poly1305_push
+  result = newString(msg.len + crypto_secretstream_xchacha20poly1305_ABYTES())
+  let
+    c_state = cpt state.state
+    cipher = cpt result
+    m = cpt msg
+    mlen = culen msg
+    c_ad = cpt ad
+    c_adlen = culen ad
+    rc = crypto_secretstream_xchacha20poly1305_push(
+      c_state,
+      cipher,
+      nil,
+      m,
+      mlen,
+      c_ad,
+      c_adlen,
+      tag,
+    )
+  check_rc rc
+
+
+proc crypto_secretstream_xchacha20poly1305_pull(
+  state: ptr cuchar,
+  m: ptr cuchar,
+  mlen_p: ptr culonglong,
+  tag_p: ptr cuchar,
+  ins: ptr cuchar,
+  inlen: culonglong,
+  ad: ptr cuchar,
+  adlen: culonglong,
+):cint {.sodium_import.}
+
+proc pull*(state: SecretStreamXChaCha20Poly1305PullState, cipher, ad: string): (string, cuchar) =
+  ## Perform crypto_secretstream_xchacha20poly1305_pull
+  result[0] = newString(cipher.len - crypto_secretstream_xchacha20poly1305_ABYTES())
+  let
+    c_state = cpt state.state
+    m = cpt result[0]
+    c_in = cpt cipher
+    c_inlen = culen cipher
+    c_ad = cpt ad
+    c_adlen = culen ad
+    rc = crypto_secretstream_xchacha20poly1305_pull(
+      c_state,
+      m,
+      nil,
+      result[1].unsafeAddr,
+      c_in,
+      c_inlen,
+      c_ad,
+      c_adlen,
+    )
+  check_rc rc
