@@ -116,17 +116,27 @@ suite "public-key signatures":
   test "generate public key from secret key":
     check crypto_sign_ed25519_sk_to_pk(sk) == pk
 
-  test "sign":
+  test "sign detached":
     let sig = crypto_sign_detached(sk, "hello")
     check sig.len == crypto_sign_BYTES()
 
-  test "verify":
+  test "verify detached":
     let signature = crypto_sign_detached(sk, "hello")
     checkpoint "verify signature"
     crypto_sign_verify_detached(pk, "hello", signature)
     checkpoint "verify signature, expect SodiumError"
     expect SodiumError:
       crypto_sign_verify_detached(pk, "hello", signature[0..^2] & "X")
+  
+  test "sign and verify combined":
+    let sig = crypto_sign(sk, "some message to sign")
+    let original = crypto_sign_open(pk, sig)
+    check original == "some message to sign"
+    
+    checkpoint "expect SodiumError"
+    let (other_pk, other_sk) = crypto_sign_keypair()
+    expect SodiumError:
+      discard crypto_sign_open(other_pk, sig)
 
   # Sealed boxes
 

@@ -490,6 +490,48 @@ proc crypto_sign_ed25519_sk_to_pk*(secret_key: SecretKey): PublicKey =
   check_rc rc
 
 
+proc crypto_sign(
+  sm: ptr cuchar,
+  smlen_p: ptr culonglong,
+  m: ptr cuchar,
+  mlen: culonglong,
+  sk: ptr cuchar,
+):cint {.sodium_import.}
+
+proc crypto_sign*(secret_key: SecretKey, message: string): string =
+  ## Sign a message, combining it with the message
+  assert secret_key.len == crypto_sign_SECRETKEYBYTES()
+  result = newString(crypto_sign_bytes() + message.len)
+  let
+    sk = cpt secret_key
+    sm = cpt result
+    m = cpt message
+    mlen = culen message
+    rc = crypto_sign(sm, nil, m, mlen, sk)
+  check_rc rc
+
+
+proc crypto_sign_open(
+  m: ptr cuchar,
+  mlen_p: ptr culonglong,
+  sm: ptr cuchar,
+  smlen: culonglong,
+  pk: ptr cuchar,
+):cint {.sodium_import.}
+
+proc crypto_sign_open*(public_key: PublicKey, signed_message: string): string =
+  ## Verify a signed combined message, returning the message on success
+  assert public_key.len == crypto_sign_PUBLICKEYBYTES()
+  result = newString(signed_message.len - crypto_sign_bytes())
+  let
+    m = cpt result
+    sm = cpt signed_message
+    smlen = culen signed_message
+    pk = cpt public_key
+    rc = crypto_sign_open(m, nil, sm, smlen, pk)
+  check_rc rc
+
+
 # Sealed boxes
 # https://download.libsodium.org/doc/public-key_cryptography/sealed_boxes.html
 
