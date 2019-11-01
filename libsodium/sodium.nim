@@ -61,6 +61,12 @@ proc randombytes(
   size: culonglong,
 ) {.sodium_import.}
 
+proc randombytes_random*(): uint32 {.sodium_import.}
+  ## Returns an unpredictable value between 0 and 0xffffffff (included).
+
+proc randombytes_uniform*(upper_bound: uint32): uint32 {.sodium_import.}
+  ## Returns an unpredictable value between 0 and ``upper_bound`` (excluded).
+
 proc randombytes*(size: int): string =
   result = newString size
   let o = cpt result

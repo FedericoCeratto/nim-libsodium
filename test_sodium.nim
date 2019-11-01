@@ -47,6 +47,7 @@ suite "basics":
   test "random":
     var r = randombytes(8)
     check r.len == 8
+    check randombytes_uniform(42) < 42'u32
 
   test "auth":
     let
