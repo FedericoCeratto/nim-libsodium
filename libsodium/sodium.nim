@@ -65,7 +65,8 @@ proc randombytes_random*(): uint32 {.sodium_import.}
   ## Returns an unpredictable value between 0 and 0xffffffff (included).
 
 proc randombytes_uniform*(upper_bound: uint32): uint32 {.sodium_import.}
-  ## Returns an unpredictable value between 0 and ``upper_bound`` (excluded).
+  ## Returns an unpredictable value between 0 and ``upper_bound`` (excluded)
+  ## with uniform distribution
 
 proc randombytes*(size: int): string =
   result = newString size
