@@ -49,9 +49,19 @@ template check_rc(rc: cint): untyped =
     raise newException(SodiumError, "return code: $#" % $rc)
 
 
+# Initialization - https://download.libsodium.org/doc/quickstart
+
+proc sodium_init*(): cint {.sodium_import.}
+  ## Initialize libsodium. Returns 0 for success, 1 if it was already initialized
+  ## and -1 on failure.
+  ##
+  ## It is called automatically at runtime unless `no_sodium_autoinit` is defined.
+
+when not defined(no_sodium_autoinit):
+  doAssert sodium_init() >= 0, "Libsodium failed to initialize"
+
 
 # https://download.libsodium.org/doc/helpers/memory_management.html
-
 
 # https://download.libsodium.org/doc/generating_random_data/index.html
 
