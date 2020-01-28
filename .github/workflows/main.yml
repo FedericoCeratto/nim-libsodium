@@ -11,7 +11,7 @@ jobs:
         nimversion: [stable, devel]
     steps:
     - uses: actions/checkout@v1
-    - uses: iffy/install-nim@master
+    - uses: iffy/install-nim@v1
       with:
         nimversion: ${{ matrix.nimversion }}
     
@@ -25,13 +25,6 @@ jobs:
       run: |
         brew update
         brew install libsodium
-    # - name: Install Windows deps
-    #   if: runner.os == 'Windows'
-    #   shell: bash
-    #   run: |
-    #     curl -L 'https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable-mingw.tar.gz' -o libsodium-1.0.18-stable-mingw.tar.gz
-    #     tar xf libsodium-1.0.18-stable-mingw.tar.gz
-    #     pushd libsodium-win32/
     
     - name: Test
       run: nim c -r test_sodium.nim
