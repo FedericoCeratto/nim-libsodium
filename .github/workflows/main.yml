@@ -3,7 +3,7 @@ name: build
 on: [push]
 
 jobs:
-  linux:
+  tests:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -25,13 +25,13 @@ jobs:
       run: |
         brew update
         brew install libsodium
-    - name: Install Windows deps
-      if: runner.os == 'Windows'
-      shell: bash
-      run: |
-        curl -L 'https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable-mingw.tar.gz' -o libsodium-1.0.18-stable-mingw.tar.gz
-        tar xf libsodium-1.0.18-stable-mingw.tar.gz
-        pushd libsodium-win32/
+    # - name: Install Windows deps
+    #   if: runner.os == 'Windows'
+    #   shell: bash
+    #   run: |
+    #     curl -L 'https://download.libsodium.org/libsodium/releases/libsodium-1.0.18-stable-mingw.tar.gz' -o libsodium-1.0.18-stable-mingw.tar.gz
+    #     tar xf libsodium-1.0.18-stable-mingw.tar.gz
+    #     pushd libsodium-win32/
     
     - name: Test
       run: nim c -r test_sodium.nim
