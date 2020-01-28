@@ -139,6 +139,10 @@ proc crypto_secretbox_xsalsa20poly1305_macbytes*(): cint {.sodium_import.}
 proc crypto_secretbox_xsalsa20poly1305_noncebytes*(): cint {.sodium_import.}
 proc crypto_secretbox_xsalsa20poly1305_zerobytes*(): cint {.sodium_import.}
 proc crypto_secretbox_zerobytes*(): cint {.sodium_import.}
+proc crypto_secretstream_xchacha20poly1305_abytes*(): cint {.sodium_import.}
+proc crypto_secretstream_xchacha20poly1305_keybytes*(): cint {.sodium_import.}
+proc crypto_secretstream_xchacha20poly1305_headerbytes*(): cint {.sodium_import.}
+proc crypto_secretstream_xchacha20poly1305_statebytes*(): cint {.sodium_import.}
 proc crypto_shorthash_bytes*(): cint {.sodium_import.}
 proc crypto_shorthash_keybytes*(): cint {.sodium_import.}
 proc crypto_shorthash_siphash24_bytes*(): cint {.sodium_import.}
