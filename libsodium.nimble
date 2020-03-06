@@ -3,7 +3,7 @@
 version       = "0.6.0"
 author        = "Federico Ceratto"
 description   = "libsodium wrapper"
-license       = "LGPLv3"
+license       = "MPL-2.0"
 
 # Dependencies
 

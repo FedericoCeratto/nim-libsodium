@@ -1,5 +1,5 @@
 # 2017 Federico Ceratto <federico.ceratto@gmail.com>
-# Released under LGPLv3, see LICENSE file
+# Released under MPL-2.0, see LICENSE file
 #
 ## Libsodium18/23 wrapper
 ##
