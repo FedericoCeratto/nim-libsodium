@@ -2,7 +2,7 @@
 
 Nim wrapper for the libsodium library
 
-image:https://travis-ci.org/FedericoCeratto/nim-libsodium.svg?branch=master["Build Status", link="https://travis-ci.org/FedericoCeratto/nim-libsodium"]
+image:https://github.com/FedericoCeratto/nim-libsodium/workflows/build/badge.svg?branch=master["Build Status", link="https://github.com/FedericoCeratto/nim-libsodium/actions"]
 image:https://img.shields.io/badge/status-beta-orange.svg[badge]
 image:https://img.shields.io/github/tag/FedericoCeratto/nim-libsodium.svg[tags]
 image:https://img.shields.io/badge/License-MPL%20v2.0-blue.svg[License]

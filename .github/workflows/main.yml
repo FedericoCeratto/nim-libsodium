@@ -1,0 +1,30 @@
+name: build
+
+on: [push]
+
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macOS-latest, windows-latest]
+        nimversion: [stable, devel]
+    steps:
+    - uses: actions/checkout@v1
+    - uses: iffy/install-nim@v1
+      with:
+        nimversion: ${{ matrix.nimversion }}
+    
+    - name: Install Linux deps
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update -q
+        sudo apt-get install -y libsodium-dev
+    - name: Install macOS deps
+      if: runner.os == 'macOS'
+      run: |
+        brew update
+        brew install libsodium
+    
+    - name: Test
+      run: nim c -r test_sodium.nim
