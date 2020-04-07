@@ -515,3 +515,31 @@ suite "secretstream_xchacha20poly1305":
     check msg2 == plain2
     check tag2 == crypto_secretstream_xchacha20poly1305_tag_final()
     
+suite "padding":
+
+  test "small":
+    let padded = sodium_pad("something\0\128\0", 12)
+    check padded.len mod 12 == 0
+    check sodium_unpad(padded, 12) == "something\0\128\0"
+
+  test "message larger than block":
+    let msg = "a".repeat(257)
+    let padded = sodium_pad(msg, 32)
+    check padded.len mod 32 == 0
+    check sodium_unpad(padded, 32) == msg
+
+  test "all message sizes":
+    for i in 1..2049:
+      checkpoint($i)
+      let msg = "a".repeat(i)
+      let padded = sodium_pad(msg, 32)
+      check padded.len mod 32 == 0
+      check sodium_unpad(padded, 32) == msg
+
+  test "all block sizes":
+    for i in 1..2049:
+      checkpoint($i)
+      let msg = "a".repeat(125)
+      let padded = sodium_pad(msg, i)
+      check padded.len mod i == 0
+      check sodium_unpad(padded, i) == msg

@@ -1427,3 +1427,61 @@ proc pull*(state: SecretStreamXChaCha20Poly1305PullState, cipher, ad: string): (
       c_adlen,
     )
   check_rc rc
+
+
+# Padding
+# https://download.libsodium.org/doc/padding
+
+proc sodium_pad(
+  padded_buflen_p: ptr csize,
+  buf: ptr cuchar,
+  unpadded_buflen: csize,
+  blocksize: csize,
+  max_buflen: csize,
+):cint {.sodium_import.}
+
+proc sodium_pad*(msg: string, blocksize: int):string =
+  let maxsize = ((msg.len div blocksize) + 1) * blocksize
+  result = newString maxsize
+  for i,c in msg:
+    result[i] = c
+  var
+    buflen: csize
+  let
+    padded_buflen_p = buflen.unsafeAddr
+    buf = cpt result
+    unpadded_buflen = msg.len.csize
+    blocksize = blocksize.csize
+    max_buflen = maxsize.csize
+  check_rc sodium_pad(
+    padded_buflen_p,
+    buf,
+    unpadded_buflen,
+    blocksize,
+    max_buflen,
+  )
+  result.setLen(buflen)
+
+proc sodium_unpad(
+  unpadded_buflen_p: ptr csize,
+  buf: ptr cuchar,
+  padded_buflen: csize,
+  blocksize: csize,
+):cint {.sodium_import.}
+
+proc sodium_unpad*(padded: string, blocksize: int):string =
+  result = $padded
+  var
+    buflen: csize
+  let
+    unpadded_buflen_p = buflen.unsafeAddr
+    buf = cpt result
+    padded_buflen = padded.len.csize
+    blocksize = blocksize.csize
+  check_rc sodium_unpad(
+    unpadded_buflen_p,
+    buf,
+    padded_buflen,
+    blocksize,
+  )
+  result.setLen(buflen)
