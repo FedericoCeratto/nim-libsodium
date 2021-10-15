@@ -32,7 +32,7 @@ template cpt(target: string): untyped =
   cast[ptr cuchar](cstring(target))
 
 template cpsize(target: string): untyped =
-  csize(target.len)
+  csize_t(target.len)
 
 template culen(target: string): untyped =
   culonglong(target.len)
@@ -97,7 +97,7 @@ proc randombytes_stir*() {.sodium_import.}
 proc sodium_memcmp(
   b1: ptr cuchar,
   b2: ptr cuchar,
-  blen: csize,
+  blen: csize_t,
 ):cint {.sodium_import.}
 
 proc memcmp*(a, b: string): bool =
@@ -115,12 +115,12 @@ proc memcmp*(a, b: string): bool =
 proc sodium_compare(
   b1: ptr cuchar,
   b2: ptr cuchar,
-  blen: csize,
+  blen: csize_t,
 ):cint {.sodium_import.}
 
 proc sodium_is_zero(
   n: ptr cuchar,
-  n_len: csize,
+  n_len: csize_t,
 ):cint {.sodium_import.}
 
 proc is_zero*(data: string): bool =
@@ -135,9 +135,9 @@ proc is_zero*(data: string): bool =
 
 proc sodium_bin2hex(
   hex: ptr cuchar,
-  hex_maxlen: csize;
+  hex_maxlen: csize_t;
   bin: ptr cuchar,
-  bin_len: csize,
+  bin_len: csize_t,
 ):cint {.sodium_import.}
 
 proc bin2hex*(data: string): string =
@@ -153,12 +153,12 @@ proc bin2hex*(data: string): string =
 
 proc sodium_hex2bin(
   bin: ptr cuchar,
-  bin_maxlen: csize,
+  bin_maxlen: csize_t,
   hex: ptr cchar,
-  hex_len: csize,
+  hex_len: csize_t,
   #
   ignore: ptr cchar,
-  bin_len: ptr csize,
+  bin_len: ptr csize_t,
   hex_end: ptr ptr cchar
 ):cint {.sodium_import.}
 
@@ -602,11 +602,11 @@ proc crypto_box_seal_open*(ciphertext: string, public_key: CryptoBoxPublicKey, s
 
 proc crypto_generichash(
   h: ptr cuchar,
-  hlen: csize,
+  hlen: csize_t,
   m: ptr cuchar,
   mlen: culonglong,
   key: ptr cuchar,
-  keylen: csize,
+  keylen: csize_t,
 ):cint {.sodium_import.}
 
 proc crypto_generichash*(data: string, hashlen: int = crypto_generichash_BYTES().int,
@@ -621,8 +621,8 @@ proc crypto_generichash*(data: string, hashlen: int = crypto_generichash_BYTES()
   let
     h = cpt result
     hlen =
-      if hashlen == -1: csize(crypto_generichash_BYTES())
-      else: csize(hashlen)
+      if hashlen == -1: csize_t(crypto_generichash_BYTES())
+      else: csize_t(hashlen)
 
     m = cpt data
     mlen = culen data
@@ -642,8 +642,8 @@ type GenericHash* = tuple
 proc crypto_generichash_init(
   state: ptr cuchar,
   key: ptr cuchar,
-  keylen: csize,
-  outlen: csize
+  keylen: csize_t,
+  outlen: csize_t
 ):cint {.sodium_import.}
 
 proc crypto_generichash_update(
@@ -655,7 +655,7 @@ proc crypto_generichash_update(
 proc crypto_generichash_final(
   state: ptr cuchar,
   output: ptr cuchar,
-  out_len: csize,
+  out_len: csize_t,
 ):cint {.sodium_import.}
 
 
@@ -676,7 +676,7 @@ proc new_generic_hash*(key: string, out_len: int = crypto_generichash_BYTES().in
       if key == "": nil
       else: cpt key
     klen = cpsize key
-    olen = csize out_len
+    olen = csize_t out_len
     rc = crypto_generichash_init(state, k, klen, olen)
   check_rc rc
 
@@ -695,7 +695,7 @@ proc finalize*(self: GenericHash): string =
   let
     s = cpt self.state
     h = cpt result
-    h_len = csize self.out_len
+    h_len = csize_t self.out_len
     rc = crypto_generichash_final(s, h, h_len)
   check_rc rc
   assert h.len == self.out_len
@@ -749,7 +749,7 @@ proc crypto_pwhash(
   passwdlen: culonglong,
   salt: ptr cuchar,
   opslimit: culonglong,
-  memlimit: csize,
+  memlimit: csize_t,
   alg: cint
 ):cint {.sodium_import.}
 
@@ -785,11 +785,12 @@ proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
     var salt = cast[seq[byte]](randombytes crypto_pwhash_saltbytes().int)
     let key = crypto_pwhash(Password, salt, crypto_box_seedbytes())
 
-  doAssert salt.len == crypto_pwhash_saltbytes()
-  doAssert passwd.len.csize >= crypto_pwhash_passwd_min() and
-           passwd.len.csize <= crypto_pwhash_passwd_max()
-  doAssert outlen.csize >= crypto_pwhash_bytes_min() and
-           outlen.csize <= crypto_pwhash_bytes_max()
+  doAssert salt.len.csize_t == crypto_pwhash_saltbytes()
+
+  doAssert passwd.len.csize_t >= crypto_pwhash_passwd_min() and
+           passwd.len.csize_t <= crypto_pwhash_passwd_max()
+  doAssert outlen.csize_t >= crypto_pwhash_bytes_min() and
+           outlen.csize_t <= crypto_pwhash_bytes_max()
 
   newSeq[byte](result, outlen)
   let
@@ -802,7 +803,7 @@ proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
     # the array won't get modified, justifying the use of `unsafeAddr`
     csalt = cast[ptr cuchar](unsafeAddr salt[0])
     copslimit = opslimit.culonglong
-    cmemlimit = memlimit.csize
+    cmemlimit = memlimit.csize_t
     calg = alg.toCAlg
   check_rc crypto_pwhash(cout, coutlen, cpasswd, cpasswdlen, csalt, copslimit,
                          cmemlimit, calg)
@@ -812,7 +813,7 @@ proc crypto_pwhash_str_alg(
   passwd: cstring,
   passwdlen: culonglong,
   opslimit: culonglong,
-  memlimit: csize,
+  memlimit: csize_t,
   alg: cint
 ): cint {.sodium_import.}
 
@@ -840,8 +841,8 @@ proc crypto_pwhash_str*(passwd: string, alg = phaDefault,
 
     doAssert crypto_pwhash_str_verify(hashed_password, Password)
 
-  doAssert passwd.len.csize >= crypto_pwhash_passwd_min() and
-           passwd.len.csize <= crypto_pwhash_passwd_max()
+  doAssert passwd.len.csize_t >= crypto_pwhash_passwd_min() and
+           passwd.len.csize_t <= crypto_pwhash_passwd_max()
 
   result = newString crypto_pwhash_strbytes()
 
@@ -850,7 +851,7 @@ proc crypto_pwhash_str*(passwd: string, alg = phaDefault,
     cpasswd = cstring passwd
     cpasswdlen = passwd.len.culonglong
     copslimit = opslimit.culonglong
-    cmemlimit = memlimit.csize
+    cmemlimit = memlimit.csize_t
     calg = alg.toCAlg()
 
   check_rc crypto_pwhash_str_alg(cout, cpasswd, cpasswdlen, copslimit, cmemlimit,
@@ -875,7 +876,7 @@ proc crypto_pwhash_str_verify*(str, passwd: string): bool {.inline.} =
 proc crypto_pwhash_str_needs_rehash(
   str: cstring,
   opslimit: culonglong,
-  memlimit: csize
+  memlimit: csize_t
 ): cint {.sodium_import.}
 
 proc crypto_pwhash_str_needs_rehash*(str: string,
@@ -897,7 +898,7 @@ proc crypto_pwhash_str_needs_rehash*(str: string,
   ## * `crypto_pwhash_str proc <#crypto_pwhash_str,string>`_
   ## * `crypto_pwhash_str_verify proc <#crypto_pwhash_str_verify,string,string>`_
   int crypto_pwhash_str_needs_rehash(cstring str, culonglong opslimit,
-                                     csize memlimit)
+                                     csize_t memlimit)
 
 # Diffie-Hellman function
 # https://download.libsodium.org/doc/advanced/scalar_multiplication.html
@@ -981,7 +982,7 @@ proc crypto_onetimeauth_verify*(tok, message, key: string): bool =
     rc = crypto_onetimeauth_verify(o, msg, msg_len, k)
   return rc == 0
 
-# HMAC
+# HMAC256
 
 proc crypto_auth_hmacsha256(
   o: ptr cuchar,
@@ -1075,7 +1076,99 @@ proc finalize*(self: HMACSHA256State): string =
     rc = crypto_auth_hmacsha256_final(s, h)
   check_rc rc
 
+# HMAC512
 
+proc crypto_auth_hmacsha512(
+  o: ptr cuchar,
+  i: ptr cuchar,
+  inlen: culonglong,
+  k: ptr cuchar
+): cint {.sodium_import.}
+
+proc crypto_auth_hmacsha512*(message, key: string): string =
+  ## HMAC SHA512
+  assert key.len == crypto_auth_hmacsha512_keybytes()
+  result = newString crypto_auth_hmacsha512_bytes()
+  let
+    o = cpt result
+    msg = cpt message
+    msg_len = culen message
+    k = cpt key
+    rc = crypto_auth_hmacsha512(o, msg, msg_len, k)
+  check_rc rc
+
+proc crypto_auth_hmacsha512_verify(
+  h: ptr cuchar,
+  i: ptr cuchar,
+  inlen: culonglong,
+  k: ptr cuchar,
+): cint {.sodium_import.}
+
+proc crypto_auth_hmacsha512_verify*(mac, message, key: string): bool =
+  ## HMAC SHA512 verification
+  assert mac.len == crypto_auth_hmacsha512_bytes()
+  assert key.len == crypto_auth_hmacsha512_keybytes()
+  let
+    tag = cpt mac
+    msg = cpt message
+    msg_len = culen message
+    k = cpt key
+    rc = crypto_auth_hmacsha512_verify(tag, msg, msg_len, k)
+
+  return rc == 0
+
+proc crypto_auth_hmacsha512_init(
+  state: ptr cuchar,
+  key: ptr cuchar,
+  keylen: culonglong
+): cint {.sodium_import.}
+
+proc crypto_auth_hmacsha512_update(
+  state: ptr cuchar,
+  data: ptr cuchar,
+  data_len: culonglong
+):cint {.sodium_import.}
+
+proc crypto_auth_hmacsha512_final(
+  state: ptr cuchar,
+  output: ptr cuchar,
+):cint {.sodium_import.}
+
+type HMACSHA512State* = tuple
+  state: string
+
+proc new_crypto_auth_hmacsha512*(key: string): HMACSHA512State =
+  ## Create multipart SHA512 HMAC
+  ## Create a new multipart hash, returns a HMACSHA512State
+  ## The HMACSHA512State is to be updated with .update()
+  ## Upon calling .finalize() on it it will return a hash value
+  result.state = newString crypto_auth_hmacsha512_statebytes()
+  let
+    state = cpt result.state
+    k =
+      if key == "": nil
+      else: cpt key
+    klen = culen key
+    rc = crypto_auth_hmacsha512_init(state, k, klen)
+  check_rc rc
+
+proc update512*(self: HMACSHA512State, data: string) =
+  ## Update the multipart hash with more data
+  let
+    s = cpt self.state
+    d = cpt data
+    d_len = culen data
+    rc = crypto_auth_hmacsha512_update(s, d, d_len)
+  check_rc rc
+
+proc finalize512*(self: HMACSHA512State): string =
+  ## Finish the multipart hash and return the hash value as a string
+  result = newString crypto_auth_hmacsha512_bytes()
+  let
+    s = cpt self.state
+    h = cpt result
+    rc = crypto_auth_hmacsha512_final(s, h)
+  check_rc rc
 
 # Stream ciphers
 
