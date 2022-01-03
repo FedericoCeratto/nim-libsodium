@@ -12,11 +12,11 @@ jobs:
         nimversion: [stable, devel]
 
     steps:
-    - uses: actions/checkout@v2
-    - uses: jiro4989/setup-nim-action@v1
+    - uses: actions/checkout@v1
+    - uses: iffy/install-nim@v4.1.1
       with:
-        nim-version: ${{ matrix.nimversion }}
-
+        version: ${{ matrix.nimversion }}
+    
     - name: Install Linux deps
       if: runner.os == 'Linux'
       run: |
