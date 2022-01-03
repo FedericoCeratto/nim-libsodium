@@ -8,8 +8,8 @@
 import strutils
 import unittest
 
-import libsodium.sodium
-import libsodium.sodium_sizes
+import libsodium/sodium
+import libsodium/sodium_sizes
 
 suite "basics":
 
@@ -185,13 +185,13 @@ suite "hashing":
       "d151c2da09ecb65ea8b8b38c89b03af"
 
   test "generic multipart hashing bad sizes":
-    expect AssertionError:
+    expect AssertionDefect:
       let ha = new_generic_hash("short key")
-    expect AssertionError:
+    expect AssertionDefect:
       let ha = new_generic_hash(zeroed 999)
-    expect AssertionError:
+    expect AssertionDefect:
       let ha = new_generic_hash(zeroed crypto_generichash_KEYBYTES(), 3)
-    expect AssertionError:
+    expect AssertionDefect:
       let ha = new_generic_hash(zeroed crypto_generichash_KEYBYTES(), 9999)
 
   test "shorthash":
@@ -210,7 +210,7 @@ suite "hashing":
 
 suite "password hashing":
   const Password = "Correct Horse Battery Staple"
-  let salt = randombytes crypto_pwhash_saltbytes()
+  let salt = randombytes(crypto_pwhash_saltbytes().int)
   for i in PasswordHashingAlgorithm:
     test "password hashing (" & $i & ")":
       let h = crypto_pwhash(Password, cast[seq[byte]](salt), 32, i)
@@ -271,7 +271,7 @@ suite "HMAC":
   const msg = repeat("n", 1000)
 
   test "HMAC short key":
-    expect AssertionError:
+    expect AssertionDefect:
       let
         key = repeat("k", crypto_auth_keybytes() - 1)
         h = crypto_auth(msg, key)
@@ -293,7 +293,7 @@ suite "HMAC":
   # SHA256
 
   test "HMAC SHA256 short key":
-    expect AssertionError:
+    expect AssertionDefect:
       let
         key = repeat("k", crypto_auth_hmacsha256_keybytes() - 1)
         h = crypto_auth_hmacsha256(msg, key)
@@ -340,11 +340,11 @@ suite "stream ciphers":
     check key.len == crypto_auth_KEYBYTES()
 
   test "Salsa20 stream":
-    expect AssertionError:
+    expect AssertionDefect:
       let nonce = repeat("n", crypto_stream_salsa20_NONCEBYTES())
       discard crypto_stream_salsa20(nonce, "", 1024)
 
-    expect AssertionError:
+    expect AssertionDefect:
       let key = crypto_stream_salsa20_keygen()
       discard crypto_stream_salsa20("", key, 1024)
 
@@ -401,11 +401,11 @@ suite "stream ciphers":
     check key.len == crypto_auth_KEYBYTES()
 
   test "XSalsa20 stream":
-    expect AssertionError:
+    expect AssertionDefect:
       let nonce = repeat("n", crypto_stream_xsalsa20_NONCEBYTES())
       discard crypto_stream(nonce, "", 1024)
 
-    expect AssertionError:
+    expect AssertionDefect:
       let key = crypto_stream_keygen()
       discard crypto_stream("", key, 1024)
 
