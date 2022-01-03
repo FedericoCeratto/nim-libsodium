@@ -39,7 +39,7 @@ suite "basics":
     check hex2bin("") == ""
     check hex2bin("00ff") == "\0\255"
     check hex2bin("ff00") == "\255\0"
-    check hex2bin("ff:aa:bb:cc", ignore=":") == "\xFF\xAA\xBB\xCC\0"
+    check hex2bin("ff:aa:bb:cc", ignore = ":") == "\xFF\xAA\xBB\xCC\0"
     # FIXME
     #check hex2bin("ff:aa:bb:cc", ignore=":").len == 4
     #check hex2bin("00010203040506070809") == "\0\x01\x02\x03\x04\x05\x06\x07\x08\x09"
@@ -128,12 +128,12 @@ suite "public-key signatures":
     checkpoint "verify signature, expect SodiumError"
     expect SodiumError:
       crypto_sign_verify_detached(pk, "hello", signature[0..^2] & "X")
-  
+
   test "sign and verify combined":
     let sig = crypto_sign(sk, "some message to sign")
     let original = crypto_sign_open(pk, sig)
     check original == "some message to sign"
-    
+
     checkpoint "expect SodiumError"
     let (other_pk, other_sk) = crypto_sign_keypair()
     expect SodiumError:
@@ -218,8 +218,8 @@ suite "password hashing":
 
   for i in PasswordHashingAlgorithm:
     test "password hashing & verification (" & $i & ")":
-        let h = crypto_pwhash_str(Password, i)
-        check crypto_pwhash_str_verify(h, Password)
+      let h = crypto_pwhash_str(Password, i)
+      check crypto_pwhash_str_verify(h, Password)
 
   test "password rehash required":
     let h = crypto_pwhash_str(Password, opslimit = crypto_pwhash_opslimit_min(),
@@ -444,12 +444,12 @@ suite "key exchange":
     check crypto_kx_PUBLICKEYBYTES() * 8 == 256
     check crypto_kx_SECRETKEYBYTES() * 8 == 256
     check crypto_kx_SESSIONKEYBYTES() * 8 == 256
-  
+
   test "crypto_kx_keypair":
     let (pk, sk) = crypto_kx_keypair()
     check pk.len == crypto_kx_PUBLICKEYBYTES()
     check sk.len == crypto_kx_SECRETKEYBYTES()
-  
+
   test "crypto_kx_client_session_keys":
     let
       (cpub, csec) = crypto_kx_keypair() # client
@@ -457,7 +457,7 @@ suite "key exchange":
       (rx, tx) = crypto_kx_client_session_keys(cpub, csec, spub)
     check rx.len == crypto_kx_SESSIONKEYBYTES()
     check tx.len == crypto_kx_SESSIONKEYBYTES()
-  
+
   test "crypto_kx_server_session_keys":
     let
       (cpub, csec) = crypto_kx_keypair() # client
@@ -465,20 +465,20 @@ suite "key exchange":
       (rx, tx) = crypto_kx_server_session_keys(spub, ssec, cpub)
     check rx.len == crypto_kx_SESSIONKEYBYTES()
     check tx.len == crypto_kx_SESSIONKEYBYTES()
-  
+
   test "session key with crypto_secretbox":
     let
       (cpub, csec) = crypto_kx_keypair() # client
       (spub, ssec) = crypto_kx_keypair() # server
       (crx, ctx) = crypto_kx_client_session_keys(cpub, csec, spub)
       (srx, stx) = crypto_kx_server_session_keys(spub, ssec, cpub)
-    
+
     # client to server
     let
       cipher1 = crypto_secretbox_easy(ctx, "hello from client")
       plain1 = crypto_secretbox_open_easy(srx, cipher1)
     check plain1 == "hello from client"
-    
+
     # server to client
     let
       cipher2 = crypto_secretbox_easy(stx, "hello from server")
@@ -491,7 +491,7 @@ suite "secretstream_xchacha20poly1305":
   test "sizes":
     check crypto_secretstream_xchacha20poly1305_KEYBYTES() * 8 == 256
     check crypto_secretstream_xchacha20poly1305_HEADERBYTES() > 0
-  
+
   test "keygen":
     let key = crypto_secretstream_xchacha20poly1305_keygen()
     check key.len == crypto_secretstream_xchacha20poly1305_KEYBYTES()
@@ -503,18 +503,20 @@ suite "secretstream_xchacha20poly1305":
       pull_state = crypto_secretstream_xchacha20poly1305_init_pull(header, key)
       plain1 = "Hello, there"
       plain2 = "this is message 2"
-      cipher1 = push_state.push(plain1, "", crypto_secretstream_xchacha20poly1305_tag_message())
-      cipher2 = push_state.push(plain2, "", crypto_secretstream_xchacha20poly1305_tag_final())
+      cipher1 = push_state.push(plain1, "",
+          crypto_secretstream_xchacha20poly1305_tag_message())
+      cipher2 = push_state.push(plain2, "",
+          crypto_secretstream_xchacha20poly1305_tag_final())
       (msg1, tag1) = pull_state.pull(cipher1, "")
       (msg2, tag2) = pull_state.pull(cipher2, "")
-    
+
     check cipher1.len == plain1.len + crypto_secretstream_xchacha20poly1305_ABYTES()
     check cipher2.len == plain2.len + crypto_secretstream_xchacha20poly1305_ABYTES()
     check msg1 == plain1
     check tag1 == crypto_secretstream_xchacha20poly1305_tag_message()
     check msg2 == plain2
     check tag2 == crypto_secretstream_xchacha20poly1305_tag_final()
-    
+
 suite "padding":
 
   test "small":
