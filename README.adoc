@@ -7,14 +7,11 @@ image:https://img.shields.io/badge/status-beta-orange.svg[badge]
 image:https://img.shields.io/github/tag/FedericoCeratto/nim-libsodium.svg[tags]
 image:https://img.shields.io/badge/License-MPL%20v2.0-blue.svg[License]
 
-
-WARNING: This library is under development and has not been reviewed by 3rd parties
-
 ### Features
 
 * Wrap libsodium and expose only memory-safe entities
 * Follow libsodium naming convention for most functions
-* Tested on Linux
+* Tested on Linux, MacOS and windows
 * Basic unit tests
 * No homemade crypto
 
