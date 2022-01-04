@@ -50,7 +50,8 @@ template check_rc(rc: cint): untyped =
     raise newException(SodiumError, "return code: $#" % $rc)
 
 
-# Initialization - https://download.libsodium.org/doc/quickstart
+# Initialization
+# https://doc.libsodium.org/quickstart
 
 proc sodium_init*(): cint {.sodium_import.}
   ## Initialize libsodium. Returns 0 for success, 1 if it was already initialized
@@ -62,9 +63,11 @@ when not defined(no_sodium_autoinit):
   doAssert sodium_init() >= 0, "Libsodium failed to initialize"
 
 
-# https://download.libsodium.org/doc/helpers/memory_management.html
+# Secure memory - TODO
+# https://doc.libsodium.org/memory_management
 
-# https://download.libsodium.org/doc/generating_random_data/index.html
+# Generating random data
+# https://doc.libsodium.org/generating_random_data
 
 
 proc randombytes(
@@ -89,11 +92,8 @@ proc randombytes_stir*() {.sodium_import.}
   ## Reseeds the pseudorandom number generator - if supported.
 
 
-
-
-
-# https://download.libsodium.org/doc/helpers/index.html
-
+# Helpers
+# https://doc.libsodium.org/helpers
 
 proc sodium_memcmp(
   b1: cptr,
@@ -176,7 +176,7 @@ proc hex2bin*(data: string, ignore = ""): string =
 
 
 # Authenticated encryption
-# https://download.libsodium.org/doc/secret-key_cryptography/authenticated_encryption.html
+# https://doc.libsodium.org/public-key_cryptography/authenticated_encryption
 
 
 #void crypto_secretbox_keygen(unsigned char k[crypto_secretbox_KEYBYTES]);
@@ -260,7 +260,7 @@ proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
 
 
 # Secret-key authentication (HMAC)
-# https://download.libsodium.org/doc/secret-key_cryptography/secret-key_authentication.html
+# https://doc.libsodium.org/secret-key_cryptography/secret-key_authentication
 
 proc crypto_auth(
   mac: cptr,
@@ -300,31 +300,16 @@ proc crypto_auth_verify*(mac, message, key: string): bool =
 
   return rc == 0
 
-# https://download.libsodium.org/doc/secret-key_cryptography/aead.html
-# https://download.libsodium.org/doc/secret-key_cryptography/original_chacha20-poly1305_construction.html
-# https://download.libsodium.org/doc/secret-key_cryptography/ietf_chacha20-poly1305_construction.html
-# https://download.libsodium.org/doc/secret-key_cryptography/aes-256-gcm.html
-#
-# https://download.libsodium.org/doc/secret-key_cryptography/aes-gcm_with_precomputation.html
+# AEAD constructions - TODO
+# https://doc.libsodium.org/secret-key_cryptography/aead
 
-# https://download.libsodium.org/doc/public-key_cryptography/authenticated_encryption.html
+# AES256-GCM
+# https://doc.libsodium.org/secret-key_cryptography/aead/aes-256-gcm
 
-
-#proc verify_message*(key: string, msg: string, signature: string) =
-#  ## verify a message signed using ed25519
-#  ## if the signature is not provided, it is assumed that it is found at the
-#  ## beginning of the message
-#  discard
-#
-#
-#proc sign_message*(key, message: string): string =
-#  ## sign a message using ed25519
-#  discard
 
 
 # Public-key authenticated encryption
-# https://download.libsodium.org/doc/public-key_cryptography/authenticated_encryption.html
-
+# https://doc.libsodium.org/public-key_cryptography/authenticated_encryption
 
 type
   CryptoBoxPublicKey = string
@@ -399,9 +384,7 @@ proc crypto_box_open_easy*(ciphertext, nonce: string,
 
 
 # Public-key signatures
-# https://download.libsodium.org/doc/public-key_cryptography/public-key_signatures.html
-
-
+# https://doc.libsodium.org/public-key_cryptography/authenticated_encryption
 
 type
   PublicKey = string
@@ -558,7 +541,7 @@ proc crypto_sign_open*(public_key: PublicKey, signed_message: string): string =
 
 
 # Sealed boxes
-# https://download.libsodium.org/doc/public-key_cryptography/sealed_boxes.html
+# https://doc.libsodium.org/public-key_cryptography/sealed_boxes
 
 
 proc crypto_box_seal(
@@ -606,7 +589,7 @@ proc crypto_box_seal_open*(ciphertext: string, public_key: CryptoBoxPublicKey,
 
 
 # Generic hashing
-# https://download.libsodium.org/doc/hashing/generic_hashing.html
+# https://doc.libsodium.org/hashing/generic_hashing
 
 
 proc crypto_generichash(
@@ -711,7 +694,7 @@ proc finalize*(self: GenericHash): string =
 
 
 # Short-input hashing
-# https://download.libsodium.org/doc/hashing/short-input_hashing.html
+# https://doc.libsodium.org/hashing/short-input_hashing
 
 type ShortHashKey = string
 
@@ -740,7 +723,7 @@ proc generate_key_for_short_hash*(): ShortHashKey =
 
 
 # Password hashing
-# https://download.libsodium.org/doc/password_hashing
+# https://doc.libsodium.org/password_hashing
 
 type
   PasswordHashingAlgorithm* = enum
@@ -909,7 +892,7 @@ proc crypto_pwhash_str_needs_rehash*(str: string,
                                      csize_t memlimit)
 
 # Diffie-Hellman function
-# https://download.libsodium.org/doc/advanced/scalar_multiplication.html
+# https://doc.libsodium.org/advanced/scalar_multiplication
 
 
 proc crypto_scalarmult_base(
@@ -947,8 +930,8 @@ proc crypto_scalarmult*(secret_key, public_key: string): string =
     rc = crypto_scalarmult(q, n, p)
   check_rc rc
 
-# Secret-key single-message authentication using Poly1305
-# https://download.libsodium.org/doc/advanced/poly1305.html
+# Secret-key One-time authentication using Poly1305
+# https://doc.libsodium.org/advanced/poly1305
 
 proc crypto_onetimeauth(
   o: cptr,
@@ -1234,7 +1217,7 @@ proc crypto_stream_keygen*(): string =
   crypto_stream_keygen(o)
 
 # Key exchange
-# https://download.libsodium.org/doc/key_exchange.html
+# https://doc.libsodium.org/key_exchange
 
 type
   CryptoKxPublicKey = string
@@ -1306,7 +1289,7 @@ proc crypto_kx_server_session_keys*(server_pk, server_sk, client_pk: string): (
 
 
 # Secret stream
-# https://download.libsodium.org/doc/secret-key_cryptography/secretstream
+# https://doc.libsodium.org/secret-key_cryptography/secretstream
 
 type
   SecretStreamXChaCha20Poly1305Key* = string
@@ -1448,7 +1431,7 @@ proc pull*(state: SecretStreamXChaCha20Poly1305PullState, cipher, ad: string): (
 
 
 # Padding
-# https://download.libsodium.org/doc/padding
+# https://doc.libsodium.org/padding
 
 proc sodium_pad(
   padded_buflen_p: ptr csize_t,
