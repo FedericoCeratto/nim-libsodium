@@ -19,7 +19,9 @@ image:https://img.shields.io/badge/License-MPL%20v2.0-blue.svg[License]
 
 Refer to the link:https://download.libsodium.org/doc/index.html[official libsodium documentation]
 
-and the http://federicoceratto.github.io/nim-libsodium/0.4.1/theindex.html[module documentation]
+and the generated documentation using `nim doc`.
+
+Also, the structure of libsodium/sodium.nim follows the order of https://doc.libsodium.org/
 
 [source,bash]
 ----
