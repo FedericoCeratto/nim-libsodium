@@ -962,7 +962,7 @@ proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
                     opslimit = crypto_pwhash_opslimit_moderate(),
                     memlimit = crypto_pwhash_memlimit_moderate()
                    ): seq[byte] =
-  ## Derive an ``outlen`` long key from a password ``passwd`` whose length is in
+  ## Derive an ``outlen`` long key from a password ``passwd`` with length
   ## between ``crypto_pwhash_passwd_min()`` and ``crypto_pwhash_passwd_max()``
   ## and a salt of fixed length of ``crypto_pwhash_saltbytes()``.
   ##
@@ -973,10 +973,10 @@ proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
   ## * `crypto_pwhash_str proc <#crypto_pwhash_str,string>`_
   runnableExamples:
     import sodium_sizes
-    const Password = "Correct Horse Battery Staple"
+    const password = "Correct Horse Battery Staple"
 
     var salt = cast[seq[byte]](randombytes crypto_pwhash_saltbytes().int)
-    let key = crypto_pwhash(Password, salt, crypto_box_seedbytes())
+    let key = crypto_pwhash(password, salt, crypto_box_seedbytes())
 
   doAssert salt.len == crypto_pwhash_saltbytes().int
   doAssert passwd.len.csize_t >= crypto_pwhash_passwd_min() and
@@ -1074,7 +1074,7 @@ proc crypto_pwhash_str_needs_rehash(
 proc crypto_pwhash_str_needs_rehash*(str: string,
                                      opslimit = crypto_pwhash_opslimit_moderate(),
                                      memlimit = crypto_pwhash_memlimit_moderate()
-                                    ): int {.inline.} =
+                                    ): int =
   ## Check if a password verification string ``str`` matches the parameters
   ## ``opslimit`` and ``memlimit``, and the current default algorithm.
   ##

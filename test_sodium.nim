@@ -209,25 +209,26 @@ suite "hashing":
     check h != h_using_k2
 
 suite "password hashing":
-  const Password = "Correct Horse Battery Staple"
-  let salt = randombytes(crypto_pwhash_saltbytes().int)
+  const password = "Correct Horse Battery Staple"
+  let salt = cast[seq[byte]](randombytes crypto_pwhash_saltbytes().int)
+
   for i in PasswordHashingAlgorithm:
     test "password hashing (" & $i & ")":
-      let h = crypto_pwhash(Password, cast[seq[byte]](salt), 32, i)
+      let h = crypto_pwhash(password, salt, 32, i)
       check h.len == 32
 
   for i in PasswordHashingAlgorithm:
     test "password hashing & verification (" & $i & ")":
-      let h = crypto_pwhash_str(Password, i)
-      check crypto_pwhash_str_verify(h, Password)
+      let h = crypto_pwhash_str(password, i)
+      check crypto_pwhash_str_verify(h, password) == true
 
   test "password rehash required":
-    let h = crypto_pwhash_str(Password, opslimit = crypto_pwhash_opslimit_min(),
+    let h = crypto_pwhash_str(password, opslimit = crypto_pwhash_opslimit_min(),
                               memlimit = crypto_pwhash_memlimit_min())
     check crypto_pwhash_str_needs_rehash(h) > 0
 
   test "password no needs rehash":
-    let h = crypto_pwhash_str(Password)
+    let h = crypto_pwhash_str(password)
     check crypto_pwhash_str_needs_rehash(h) == 0
 
 test "Diffie-Hellman function":
