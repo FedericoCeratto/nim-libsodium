@@ -8,8 +8,6 @@
 ## Please always refer to libsodium upstream documentation and ensure that you
 ## are using the library in a secure way.
 
-{.deadCodeElim: on.}
-
 import strutils
 
 import sodium_sizes
@@ -1491,5 +1489,3 @@ proc crypto_stream_keygen*(): string =
   result = newString crypto_stream_salsa20_KEYBYTES()
   let o = cpt result
   crypto_stream_keygen(o)
-
-
