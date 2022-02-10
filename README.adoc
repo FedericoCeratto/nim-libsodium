@@ -2,19 +2,16 @@
 
 Nim wrapper for the libsodium library
 
-image:https://travis-ci.org/FedericoCeratto/nim-libsodium.svg?branch=master["Build Status", link="https://travis-ci.org/FedericoCeratto/nim-libsodium"]
+image:https://github.com/FedericoCeratto/nim-libsodium/workflows/build/badge.svg?branch=master["Build Status", link="https://github.com/FedericoCeratto/nim-libsodium/actions"]
 image:https://img.shields.io/badge/status-beta-orange.svg[badge]
 image:https://img.shields.io/github/tag/FedericoCeratto/nim-libsodium.svg[tags]
 image:https://img.shields.io/badge/License-MPL%20v2.0-blue.svg[License]
-
-
-WARNING: This library is under development and has not been reviewed by 3rd parties
 
 ### Features
 
 * Wrap libsodium and expose only memory-safe entities
 * Follow libsodium naming convention for most functions
-* Tested on Linux
+* Tested on Linux, MacOS and windows
 * Basic unit tests
 * No homemade crypto
 
@@ -22,7 +19,9 @@ WARNING: This library is under development and has not been reviewed by 3rd part
 
 Refer to the link:https://download.libsodium.org/doc/index.html[official libsodium documentation]
 
-and the http://federicoceratto.github.io/nim-libsodium/0.4.1/theindex.html[module documentation]
+and the generated documentation using `nim doc`.
+
+Also, the structure of libsodium/sodium.nim follows the order of https://doc.libsodium.org/
 
 [source,bash]
 ----

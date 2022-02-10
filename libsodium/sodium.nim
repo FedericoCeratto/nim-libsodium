@@ -8,8 +8,6 @@
 ## Please always refer to libsodium upstream documentation and ensure that you
 ## are using the library in a secure way.
 
-{.deadCodeElim: on.}
-
 import strutils
 
 import sodium_sizes
@@ -27,9 +25,10 @@ else:
 
 # helpers
 
+type cptr* = ptr char
 
 template cpt(target: string): untyped =
-  cast[ptr cuchar](cstring(target))
+  cast[cptr](cstring(target))
 
 template cpsize(target: string): untyped =
   csize_t(target.len)
@@ -49,7 +48,8 @@ template check_rc(rc: cint): untyped =
     raise newException(SodiumError, "return code: $#" % $rc)
 
 
-# Initialization - https://download.libsodium.org/doc/quickstart
+# Initialization
+# https://doc.libsodium.org/quickstart
 
 proc sodium_init*(): cint {.sodium_import.}
   ## Initialize libsodium. Returns 0 for success, 1 if it was already initialized
@@ -61,38 +61,8 @@ when not defined(no_sodium_autoinit):
   doAssert sodium_init() >= 0, "Libsodium failed to initialize"
 
 
-# https://download.libsodium.org/doc/helpers/memory_management.html
-
-# https://download.libsodium.org/doc/generating_random_data/index.html
-
-
-proc randombytes(
-  buf: ptr cuchar,
-  size: culonglong,
-) {.sodium_import.}
-
-proc randombytes_random*(): uint32 {.sodium_import.}
-  ## Returns an unpredictable value between 0 and 0xffffffff (included).
-
-proc randombytes_uniform*(upper_bound: uint32): uint32 {.sodium_import.}
-  ## Returns an unpredictable value between 0 and ``upper_bound`` (excluded)
-  ## with uniform distribution
-
-proc randombytes*(size: int): string =
-  result = newString size
-  let o = cpt result
-  randombytes(o, culonglong(size))
-  assert result.len == size
-
-proc randombytes_stir*() {.sodium_import.}
-  ## Reseeds the pseudorandom number generator - if supported.
-
-
-
-
-
-# https://download.libsodium.org/doc/helpers/index.html
-
+# Helpers
+# https://doc.libsodium.org/helpers
 
 proc sodium_memcmp(
   b1: ptr cuchar,
@@ -123,6 +93,7 @@ proc sodium_is_zero(
   n_len: csize_t,
 ):cint {.sodium_import.}
 
+
 proc is_zero*(data: string): bool =
   ## Returns true if a byte string contains only zeros.
   ## Time constant for a given length.
@@ -139,6 +110,7 @@ proc sodium_bin2hex(
   bin: ptr cuchar,
   bin_len: csize_t,
 ):cint {.sodium_import.}
+
 
 proc bin2hex*(data: string): string =
   result = newString data.len * 2 + 1
@@ -163,7 +135,7 @@ proc sodium_hex2bin(
 ):cint {.sodium_import.}
 
 
-proc hex2bin*(data: string, ignore=""): string =
+proc hex2bin*(data: string, ignore = ""): string =
   result = newString data.len div 2
   let
     bin = cpt result
@@ -174,13 +146,100 @@ proc hex2bin*(data: string, ignore=""): string =
   discard sodium_hex2bin(bin, bin_maxlen, hex, hex_len, ig, nil, nil)
 
 
-# Authenticated encryption
-# https://download.libsodium.org/doc/secret-key_cryptography/authenticated_encryption.html
+# Padding
+# https://doc.libsodium.org/padding
+
+proc sodium_pad(
+  padded_buflen_p: ptr csize_t,
+  buf: cptr,
+  unpadded_buflen: csize_t,
+  blocksize: csize_t,
+  max_buflen: csize_t,
+): cint {.sodium_import.}
+
+proc sodium_pad*(msg: string, blocksize: int): string =
+  let maxsize = ((msg.len div blocksize) + 1) * blocksize
+  result = newString maxsize
+  for i, c in msg:
+    result[i] = c
+  var
+    buflen: csize_t
+  let
+    padded_buflen_p = buflen.unsafeAddr
+    buf = cpt result
+    unpadded_buflen = msg.len.csize_t
+    blocksize = blocksize.csize_t
+    max_buflen = maxsize.csize_t
+  check_rc sodium_pad(
+    padded_buflen_p,
+    buf,
+    unpadded_buflen,
+    blocksize,
+    max_buflen,
+  )
+  result.setLen(buflen)
+
+proc sodium_unpad(
+  unpadded_buflen_p: ptr csize_t,
+  buf: cptr,
+  padded_buflen: csize_t,
+  blocksize: csize_t,
+): cint {.sodium_import.}
+
+proc sodium_unpad*(padded: string, blocksize: int): string =
+  result = $padded
+  var
+    buflen: csize_t
+  let
+    unpadded_buflen_p = buflen.unsafeAddr
+    buf = cpt result
+    padded_buflen = padded.len.csize_t
+    blocksize = blocksize.csize_t
+  check_rc sodium_unpad(
+    unpadded_buflen_p,
+    buf,
+    padded_buflen,
+    blocksize,
+  )
+  result.setLen(buflen)
+
+
+# Secure memory - TODO
+# https://doc.libsodium.org/memory_management
+
+# Generating random data
+# https://doc.libsodium.org/generating_random_data
+
+
+proc randombytes(
+  buf: cptr,
+  size: culonglong,
+) {.sodium_import.}
+
+proc randombytes_random*(): uint32 {.sodium_import.}
+  ## Returns an unpredictable value between 0 and 0xffffffff (included).
+
+proc randombytes_uniform*(upper_bound: uint32): uint32 {.sodium_import.}
+  ## Returns an unpredictable value between 0 and ``upper_bound`` (excluded)
+  ## with uniform distribution
+
+proc randombytes*(size: int): string =
+  result = newString size
+  let o = cpt result
+  randombytes(o, culonglong(size))
+  assert result.len == size
+
+proc randombytes_stir*() {.sodium_import.}
+  ## Reseeds the pseudorandom number generator - if supported.
+
+
+# Secret-key cryptography: Authenticated encryption
+# https://doc.libsodium.org/public-key_cryptography/authenticated_encryption
 
 
 #void crypto_secretbox_keygen(unsigned char k[crypto_secretbox_KEYBYTES]);
 
-proc crypto_secretbox_keygen(k: ptr cuchar) {.sodium_import.}
+proc crypto_secretbox_keygen(k: cptr) {.sodium_import.}
 
 proc crypto_secretbox_keygen*(): string =
   ## Generates a random key of length `crypto_secretbox_KEYBYTES`
@@ -189,12 +248,12 @@ proc crypto_secretbox_keygen*(): string =
   crypto_secretbox_keygen(c_key)
 
 proc crypto_secretbox_easy(
-  c: ptr cuchar,
-  m: ptr cuchar,
+  c: cptr,
+  m: cptr,
   mlen: culonglong,
-  n: ptr cuchar,
-  k: ptr cuchar,
-):cint {.sodium_import.}
+  n: cptr,
+  k: cptr,
+): cint {.sodium_import.}
 
 proc crypto_secretbox_easy*(key: string, msg: string): string =
   ## Encrypt + sign a variable len string with a preshared key
@@ -224,12 +283,12 @@ proc crypto_secretbox_easy*(key: string, msg: string): string =
 
 
 proc crypto_secretbox_open_easy(
-  decrypted: ptr cuchar,
-  c: ptr cuchar,
+  decrypted: cptr,
+  c: cptr,
   clen: culonglong,
-  n: ptr cuchar,
-  k: ptr cuchar,
-):cint {.sodium_import.}
+  n: cptr,
+  k: cptr,
+): cint {.sodium_import.}
 
 proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
   ## Decrypt + sign a variable len string with a preshared key
@@ -251,21 +310,165 @@ proc crypto_secretbox_open_easy*(key: string, bulk: string): string =
     ciphertext_len = culen ciphertext
     c_nonce = cpt nonce
     c_key = cpt key
-  let rc = crypto_secretbox_open_easy(c_decrypted, c_ciphertext, ciphertext_len, c_nonce, c_key)
+  let rc = crypto_secretbox_open_easy(c_decrypted, c_ciphertext, ciphertext_len,
+      c_nonce, c_key)
   check_rc rc
 
   return decrypted
 
 
-# Secret-key authentication (HMAC)
-# https://download.libsodium.org/doc/secret-key_cryptography/secret-key_authentication.html
+# Secret-key cryptography: Encrypted streams and file encryption
+# https://doc.libsodium.org/secret-key_cryptography/secretstream
+
+type
+  SecretStreamXChaCha20Poly1305Key* = string
+  SecretStreamXChaCha20Poly1305Header* = string
+  SecretStreamXChaCha20Poly1305PushState * = tuple
+    state: string
+  SecretStreamXChaCha20Poly1305PullState * = tuple
+    state: string
+
+proc crypto_secretstream_xchacha20poly1305_keygen(
+  key: cptr,
+) {.sodium_import.}
+
+proc crypto_secretstream_xchacha20poly1305_keygen*(): SecretStreamXChaCha20Poly1305Key =
+  # Generate a key for secretstream functions
+  result = newString crypto_secretstream_xchacha20poly1305_KEYBYTES()
+  let
+    o = cpt result
+  crypto_secretstream_xchacha20poly1305_keygen(o)
+
+proc crypto_secretstream_xchacha20poly1305_tag_message*(): char {.sodium_import.}
+proc crypto_secretstream_xchacha20poly1305_tag_push*(): char {.sodium_import.}
+proc crypto_secretstream_xchacha20poly1305_tag_rekey*(): char {.sodium_import.}
+proc crypto_secretstream_xchacha20poly1305_tag_final*(): char {.sodium_import.}
+
+
+proc crypto_secretstream_xchacha20poly1305_init_push(
+  state: cptr,
+  header: cptr,
+  key: cptr,
+): cint {.sodium_import.}
+
+proc crypto_secretstream_xchacha20poly1305_init_push*(
+  key: SecretStreamXChaCha20Poly1305Key): (
+    SecretStreamXChaCha20Poly1305PushState,
+    SecretStreamXChaCha20Poly1305Header) =
+  ## Initialize encryption for a secret stream
+  let
+    state = (state: newString crypto_secretstream_xchacha20poly1305_statebytes(), )
+    header = newString crypto_secretstream_xchacha20poly1305_headerbytes()
+    c_state = cpt state.state
+    c_header = cpt header
+    k =
+      if key == "": nil
+      else: cpt key
+    rc = crypto_secretstream_xchacha20poly1305_init_push(c_state, c_header, k)
+  result = (state, header)
+  check_rc rc
+
+proc crypto_secretstream_xchacha20poly1305_init_pull(
+  state: cptr,
+  header: cptr,
+  key: cptr,
+): cint {.sodium_import.}
+
+proc crypto_secretstream_xchacha20poly1305_init_pull*(
+  header: SecretStreamXChaCha20Poly1305Header,
+    key: SecretStreamXChaCha20Poly1305Key): SecretStreamXChaCha20Poly1305PullState =
+  ## Initialize decryption for a secret stream
+  let
+    state = (state: newString crypto_secretstream_xchacha20poly1305_statebytes(), )
+    c_state = cpt state.state
+    c_header = cpt header
+    k =
+      if key == "": nil
+      else: cpt key
+    rc = crypto_secretstream_xchacha20poly1305_init_pull(c_state, c_header, k)
+  result = state
+  check_rc rc
+
+proc crypto_secretstream_xchacha20poly1305_push(
+  state: cptr,
+  outs: cptr,
+  outlen_p: ptr culonglong,
+  m: cptr,
+  mlen: culonglong,
+  ad: cptr,
+  adlen: culonglong,
+  tag: char,
+): cint {.sodium_import.}
+
+proc push*(state: SecretStreamXChaCha20Poly1305PushState, msg, ad: string,
+    tag: char): string =
+  ## Perform crypto_secretstream_xchacha20poly1305_push
+  result = newString(msg.len + crypto_secretstream_xchacha20poly1305_ABYTES())
+  let
+    c_state = cpt state.state
+    cipher = cpt result
+    m = cpt msg
+    mlen = culen msg
+    c_ad = cpt ad
+    c_adlen = culen ad
+    rc = crypto_secretstream_xchacha20poly1305_push(
+      c_state,
+      cipher,
+      nil,
+      m,
+      mlen,
+      c_ad,
+      c_adlen,
+      tag,
+    )
+  check_rc rc
+
+
+proc crypto_secretstream_xchacha20poly1305_pull(
+  state: cptr,
+  m: cptr,
+  mlen_p: ptr culonglong,
+  tag_p: cptr,
+  ins: cptr,
+  inlen: culonglong,
+  ad: cptr,
+  adlen: culonglong,
+): cint {.sodium_import.}
+
+proc pull*(state: SecretStreamXChaCha20Poly1305PullState, cipher, ad: string): (
+    string, char) =
+  ## Perform crypto_secretstream_xchacha20poly1305_pull
+  result[0] = newString(cipher.len - crypto_secretstream_xchacha20poly1305_ABYTES())
+  let
+    c_state = cpt state.state
+    m = cpt result[0]
+    c_in = cpt cipher
+    c_inlen = culen cipher
+    c_ad = cpt ad
+    c_adlen = culen ad
+    rc = crypto_secretstream_xchacha20poly1305_pull(
+      c_state,
+      m,
+      nil,
+      result[1].unsafeAddr,
+      c_in,
+      c_inlen,
+      c_ad,
+      c_adlen,
+    )
+  check_rc rc
+
+
+
+# Secret-key cryptography: Secret-key authentication (HMAC)
+# https://doc.libsodium.org/secret-key_cryptography/secret-key_authentication
 
 proc crypto_auth(
-  mac: ptr cuchar,
-  msg: ptr cuchar,
+  mac: cptr,
+  msg: cptr,
   msg_len: culonglong,
-  key: ptr cuchar,
-):cint {.sodium_import.}
+  key: cptr,
+): cint {.sodium_import.}
 
 proc crypto_auth*(message, key: string): string =
   result = newString crypto_auth_BYTES()
@@ -280,11 +483,11 @@ proc crypto_auth*(message, key: string): string =
 
 
 proc crypto_auth_verify(
-  mac: ptr cuchar,
-  msg: ptr cuchar,
+  mac: cptr,
+  msg: cptr,
   msg_len: culonglong,
-  key: ptr cuchar,
-):cint {.sodium_import.}
+  key: cptr,
+): cint {.sodium_import.}
 
 proc crypto_auth_verify*(mac, message, key: string): bool =
   assert key.len == crypto_auth_keybytes()
@@ -298,42 +501,29 @@ proc crypto_auth_verify*(mac, message, key: string): bool =
 
   return rc == 0
 
-# https://download.libsodium.org/doc/secret-key_cryptography/aead.html
-# https://download.libsodium.org/doc/secret-key_cryptography/original_chacha20-poly1305_construction.html
-# https://download.libsodium.org/doc/secret-key_cryptography/ietf_chacha20-poly1305_construction.html
-# https://download.libsodium.org/doc/secret-key_cryptography/aes-256-gcm.html
-#
-# https://download.libsodium.org/doc/secret-key_cryptography/aes-gcm_with_precomputation.html
+# AEAD constructions - TODO
+# https://doc.libsodium.org/secret-key_cryptography/aead
 
-# https://download.libsodium.org/doc/public-key_cryptography/authenticated_encryption.html
+# AES256-GCM
+# https://doc.libsodium.org/secret-key_cryptography/aead/aes-256-gcm
 
 
-proc verify_message*(key: string, msg: string, signature: string) =
-  ## verify a message signed using ed25519
-  ## if the signature is not provided, it is assumed that it is found at the
-  ## beginning of the message
 
-
-proc sign_message*(key, message: string): string =
-  ## sign a message using ed25519
-
-
-# Public-key authenticated encryption
-# https://download.libsodium.org/doc/public-key_cryptography/authenticated_encryption.html
-
+# Public-key cryptography: Public-key authenticated encryption
+# https://doc.libsodium.org/public-key_cryptography/authenticated_encryption
 
 type
   CryptoBoxPublicKey = string
   CryptoBoxSecretKey = string
 
 template cpt(target: CryptoBoxPublicKey): untyped =
-  cast[ptr cuchar](cstring(target))
+  cast[cptr](cstring(target))
 
 
 proc crypto_box_keypair(
-  pk: ptr cuchar,
-  sk: ptr cuchar
-):cint {.sodium_import.}
+  pk: cptr,
+  sk: cptr
+): cint {.sodium_import.}
 
 proc crypto_box_keypair*(): (CryptoBoxPublicKey, CryptoBoxSecretKey) =
   result[0] = newString crypto_box_PUBLICKEYBYTES()
@@ -347,15 +537,16 @@ proc crypto_box_keypair*(): (CryptoBoxPublicKey, CryptoBoxSecretKey) =
 #TODO crypto_box_seed_keypair crypto_scalarmult_base
 
 proc crypto_box_easy(
-  c: ptr cuchar,
-  m: ptr cuchar,
+  c: cptr,
+  m: cptr,
   mlen: culonglong,
-  n: ptr cuchar,
-  pk: ptr cuchar,
-  sk: ptr cuchar,
-):cint {.sodium_import.}
+  n: cptr,
+  pk: cptr,
+  sk: cptr,
+): cint {.sodium_import.}
 
-proc crypto_box_easy*(message, nonce: string, public_key: CryptoBoxPublicKey, secret_key: CryptoBoxSecretKey): string =
+proc crypto_box_easy*(message, nonce: string, public_key: CryptoBoxPublicKey,
+    secret_key: CryptoBoxSecretKey): string =
   result = newString message.len + crypto_box_MACBYTES()
   doAssert nonce.len == crypto_box_NONCEBYTES()
   let
@@ -369,15 +560,16 @@ proc crypto_box_easy*(message, nonce: string, public_key: CryptoBoxPublicKey, se
   check_rc rc
 
 proc crypto_box_open_easy(
-  c: ptr cuchar,
-  m: ptr cuchar,
+  c: cptr,
+  m: cptr,
   mlen: culonglong,
-  n: ptr cuchar,
-  pk: ptr cuchar,
-  sk: ptr cuchar,
-):cint {.sodium_import.}
+  n: cptr,
+  pk: cptr,
+  sk: cptr,
+): cint {.sodium_import.}
 
-proc crypto_box_open_easy*(ciphertext, nonce: string, public_key: CryptoBoxPublicKey, secret_key: CryptoBoxSecretKey): string =
+proc crypto_box_open_easy*(ciphertext, nonce: string,
+    public_key: CryptoBoxPublicKey, secret_key: CryptoBoxSecretKey): string =
   doAssert nonce.len == crypto_box_NONCEBYTES()
   result = newString ciphertext.len - crypto_box_MACBYTES()
   let
@@ -392,23 +584,22 @@ proc crypto_box_open_easy*(ciphertext, nonce: string, public_key: CryptoBoxPubli
 
 
 
-# Public-key signatures
-# https://download.libsodium.org/doc/public-key_cryptography/public-key_signatures.html
-
-
+# Public-key cryptography: Public-key signatures
+# https://doc.libsodium.org/public-key_cryptography/authenticated_encryption
 
 type
   PublicKey = string
   SecretKey = string
 
 proc crypto_sign_keypair(
-  pk: ptr cuchar,
-  sk: ptr cuchar
-):cint {.sodium_import.}
+  pk: cptr,
+  sk: cptr
+): cint {.sodium_import.}
 
 proc crypto_sign_keypair*(): (PublicKey, SecretKey) =
   ## Generate a random public and secret key
-  result = (newString crypto_sign_PUBLICKEYBYTES(), newString crypto_sign_SECRETKEYBYTES())
+  result = (newString crypto_sign_PUBLICKEYBYTES(),
+      newString crypto_sign_SECRETKEYBYTES())
   let
     pk = cpt result[0]
     sk = cpt result[1]
@@ -417,10 +608,10 @@ proc crypto_sign_keypair*(): (PublicKey, SecretKey) =
 
 
 proc crypto_sign_seed_keypair(
-  pk: ptr cuchar,
-  sk: ptr cuchar,
-  seed: ptr cuchar
-):cint {.sodium_import.}
+  pk: cptr,
+  sk: cptr,
+  seed: cptr
+): cint {.sodium_import.}
 
 proc crypto_sign_seed_keypair*(seed: string): (PublicKey, SecretKey) =
   ## Deterministically generate a public and secret key from a seed
@@ -436,12 +627,12 @@ proc crypto_sign_seed_keypair*(seed: string): (PublicKey, SecretKey) =
 
 
 proc crypto_sign_detached(
-   sig: ptr cuchar,
+   sig: cptr,
    siglen: ptr culonglong,
-   m: ptr cuchar,
+   m: cptr,
    mlen: culonglong,
-   sk: ptr cuchar
-):cint {.sodium_import.}
+   sk: cptr
+): cint {.sodium_import.}
 
 proc crypto_sign_detached*(secret_key: SecretKey, message: string): string =
   result = newString crypto_sign_BYTES()
@@ -457,13 +648,14 @@ proc crypto_sign_detached*(secret_key: SecretKey, message: string): string =
 
 
 proc crypto_sign_verify_detached(
-  sig: ptr cuchar,
-  m: ptr cuchar,
+  sig: cptr,
+  m: cptr,
   mlen: culonglong,
-  pk: ptr cuchar
-):cint {.sodium_import.}
+  pk: cptr
+): cint {.sodium_import.}
 
-proc crypto_sign_verify_detached*(public_key: PublicKey, message, signature: string) =
+proc crypto_sign_verify_detached*(public_key: PublicKey, message,
+    signature: string) =
   assert signature.len == crypto_sign_BYTES()
   assert public_key.len == crypto_sign_PUBLICKEYBYTES()
   let
@@ -476,9 +668,9 @@ proc crypto_sign_verify_detached*(public_key: PublicKey, message, signature: str
 
 
 proc crypto_sign_ed25519_sk_to_seed(
-  seed: ptr cuchar,
-  sk: ptr cuchar
-):cint {.sodium_import.}
+  seed: cptr,
+  sk: cptr
+): cint {.sodium_import.}
 
 proc crypto_sign_ed25519_sk_to_seed*(secret_key: SecretKey): string =
   ## Extract the seed from a secret key
@@ -492,9 +684,9 @@ proc crypto_sign_ed25519_sk_to_seed*(secret_key: SecretKey): string =
 
 
 proc crypto_sign_ed25519_sk_to_pk(
-  pk: ptr cuchar,
-  sk: ptr cuchar
-):cint {.sodium_import.}
+  pk: cptr,
+  sk: cptr
+): cint {.sodium_import.}
 
 proc crypto_sign_ed25519_sk_to_pk*(secret_key: SecretKey): PublicKey =
   ## Extract the public key from a secret key
@@ -508,12 +700,12 @@ proc crypto_sign_ed25519_sk_to_pk*(secret_key: SecretKey): PublicKey =
 
 
 proc crypto_sign(
-  sm: ptr cuchar,
+  sm: cptr,
   smlen_p: ptr culonglong,
-  m: ptr cuchar,
+  m: cptr,
   mlen: culonglong,
-  sk: ptr cuchar,
-):cint {.sodium_import.}
+  sk: cptr,
+): cint {.sodium_import.}
 
 proc crypto_sign*(secret_key: SecretKey, message: string): string =
   ## Sign a message, combining it with the message
@@ -529,12 +721,12 @@ proc crypto_sign*(secret_key: SecretKey, message: string): string =
 
 
 proc crypto_sign_open(
-  m: ptr cuchar,
+  m: cptr,
   mlen_p: ptr culonglong,
-  sm: ptr cuchar,
+  sm: cptr,
   smlen: culonglong,
-  pk: ptr cuchar,
-):cint {.sodium_import.}
+  pk: cptr,
+): cint {.sodium_import.}
 
 proc crypto_sign_open*(public_key: PublicKey, signed_message: string): string =
   ## Verify a signed combined message, returning the message on success
@@ -549,16 +741,16 @@ proc crypto_sign_open*(public_key: PublicKey, signed_message: string): string =
   check_rc rc
 
 
-# Sealed boxes
-# https://download.libsodium.org/doc/public-key_cryptography/sealed_boxes.html
+# Public-key cryptography: Sealed boxes
+# https://doc.libsodium.org/public-key_cryptography/sealed_boxes
 
 
 proc crypto_box_seal(
-  c: ptr cuchar;
-  m: ptr cuchar,
+  c: cptr;
+  m: cptr,
   mlen: culonglong,
-  pk: ptr cuchar,
-):cint {.sodium_import.}
+  pk: cptr,
+): cint {.sodium_import.}
 
 proc crypto_box_seal*(message: string, public_key: CryptoBoxPublicKey): string =
   ## Encrypt a message using the receiver public key
@@ -574,14 +766,15 @@ proc crypto_box_seal*(message: string, public_key: CryptoBoxPublicKey): string =
 
 
 proc crypto_box_seal_open(
-  m: ptr cuchar,
-  c: ptr cuchar,
+  m: cptr,
+  c: cptr,
   clen: culonglong,
-  pk: ptr cuchar,
-  sk: ptr cuchar,
-):cint {.sodium_import.}
+  pk: cptr,
+  sk: cptr,
+): cint {.sodium_import.}
 
-proc crypto_box_seal_open*(ciphertext: string, public_key: CryptoBoxPublicKey, secret_key: CryptoBoxSecretKey): string =
+proc crypto_box_seal_open*(ciphertext: string, public_key: CryptoBoxPublicKey,
+    secret_key: CryptoBoxSecretKey): string =
   ## Decrypt a ciphertext using a public and secret key
   assert public_key.len == crypto_box_PUBLICKEYBYTES()
   assert secret_key.len == crypto_box_SECRETKEYBYTES()
@@ -597,7 +790,7 @@ proc crypto_box_seal_open*(ciphertext: string, public_key: CryptoBoxPublicKey, s
 
 
 # Generic hashing
-# https://download.libsodium.org/doc/hashing/generic_hashing.html
+# https://doc.libsodium.org/hashing/generic_hashing
 
 
 proc crypto_generichash(
@@ -609,8 +802,8 @@ proc crypto_generichash(
   keylen: csize_t,
 ):cint {.sodium_import.}
 
-proc crypto_generichash*(data: string, hashlen: int = crypto_generichash_BYTES().int,
-    key: string = ""): string =
+proc crypto_generichash*(data: string, hashlen: int = crypto_generichash_BYTES(
+    ).int, key: string = ""): string =
   ## Generate a hash of "data" of len "hashlen" using an optional key
   ## hashlen defaults to crypto_generichash_BYTES
   if key != "":
@@ -647,10 +840,10 @@ proc crypto_generichash_init(
 ):cint {.sodium_import.}
 
 proc crypto_generichash_update(
-  state: ptr cuchar,
-  data: ptr cuchar,
+  state: cptr,
+  data: cptr,
   data_len: culonglong
-):cint {.sodium_import.}
+): cint {.sodium_import.}
 
 proc crypto_generichash_final(
   state: ptr cuchar,
@@ -702,16 +895,16 @@ proc finalize*(self: GenericHash): string =
 
 
 # Short-input hashing
-# https://download.libsodium.org/doc/hashing/short-input_hashing.html
+# https://doc.libsodium.org/hashing/short-input_hashing
 
 type ShortHashKey = string
 
 proc crypto_shorthash(
-  o: ptr cuchar,
-  data: ptr cuchar,
+  o: cptr,
+  data: cptr,
   data_len: culonglong,
-  k: ptr cuchar,
-):cint {.sodium_import.}
+  k: cptr,
+): cint {.sodium_import.}
 
 
 proc crypto_shorthash*(data: string, key: ShortHashKey): string =
@@ -731,7 +924,7 @@ proc generate_key_for_short_hash*(): ShortHashKey =
 
 
 # Password hashing
-# https://download.libsodium.org/doc/password_hashing
+# https://doc.libsodium.org/password_hashing
 
 type
   PasswordHashingAlgorithm* = enum
@@ -743,15 +936,15 @@ type
                   ## libsodium 1.0.13
 
 proc crypto_pwhash(
-  `out`: ptr cuchar,
+  `out`: cptr,
   outlen: culonglong,
   passwd: cstring,
   passwdlen: culonglong,
-  salt: ptr cuchar,
+  salt: cptr,
   opslimit: culonglong,
   memlimit: csize_t,
   alg: cint
-):cint {.sodium_import.}
+): cint {.sodium_import.}
 
 proc crypto_pwhash_alg_default(): cint {.sodium_import.}
 proc crypto_pwhash_alg_argon2i13(): cint {.sodium_import.}
@@ -769,7 +962,7 @@ proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
                     opslimit = crypto_pwhash_opslimit_moderate(),
                     memlimit = crypto_pwhash_memlimit_moderate()
                    ): seq[byte] =
-  ## Derive an ``outlen`` long key from a password ``passwd`` whose length is in
+  ## Derive an ``outlen`` long key from a password ``passwd`` with length
   ## between ``crypto_pwhash_passwd_min()`` and ``crypto_pwhash_passwd_max()``
   ## and a salt of fixed length of ``crypto_pwhash_saltbytes()``.
   ##
@@ -780,13 +973,12 @@ proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
   ## * `crypto_pwhash_str proc <#crypto_pwhash_str,string>`_
   runnableExamples:
     import sodium_sizes
-    const Password = "Correct Horse Battery Staple"
+    const password = "Correct Horse Battery Staple"
 
     var salt = cast[seq[byte]](randombytes crypto_pwhash_saltbytes().int)
-    let key = crypto_pwhash(Password, salt, crypto_box_seedbytes())
+    let key = crypto_pwhash(password, salt, crypto_box_seedbytes())
 
   doAssert salt.len.csize_t == crypto_pwhash_saltbytes()
-
   doAssert passwd.len.csize_t >= crypto_pwhash_passwd_min() and
            passwd.len.csize_t <= crypto_pwhash_passwd_max()
   doAssert outlen.csize_t >= crypto_pwhash_bytes_min() and
@@ -794,14 +986,14 @@ proc crypto_pwhash*(passwd: string, salt: openArray[byte], outlen: Natural,
 
   newSeq[byte](result, outlen)
   let
-    cout = cast[ptr cuchar](addr result[0]) # This is safe, since Nim's byte is
-                                            # an uint8, just like cuchar
+    cout = cast[cptr](addr result[0]) # This is safe, since Nim's byte is
+                                      # an uint8, just like char
     coutlen = outlen.culonglong
     cpasswd = passwd.cstring
     cpasswdlen = passwd.len.culonglong
     # Same as above, also, since this is a const param, we can be sure that
     # the array won't get modified, justifying the use of `unsafeAddr`
-    csalt = cast[ptr cuchar](unsafeAddr salt[0])
+    csalt = cast[cptr](unsafeAddr salt[0])
     copslimit = opslimit.culonglong
     cmemlimit = memlimit.csize_t
     calg = alg.toCAlg
@@ -882,7 +1074,7 @@ proc crypto_pwhash_str_needs_rehash(
 proc crypto_pwhash_str_needs_rehash*(str: string,
                                      opslimit = crypto_pwhash_opslimit_moderate(),
                                      memlimit = crypto_pwhash_memlimit_moderate()
-                                    ): int {.inline.} =
+                                    ): int =
   ## Check if a password verification string ``str`` matches the parameters
   ## ``opslimit`` and ``memlimit``, and the current default algorithm.
   ##
@@ -900,14 +1092,86 @@ proc crypto_pwhash_str_needs_rehash*(str: string,
   int crypto_pwhash_str_needs_rehash(cstring str, culonglong opslimit,
                                      csize_t memlimit)
 
-# Diffie-Hellman function
-# https://download.libsodium.org/doc/advanced/scalar_multiplication.html
 
+# Key exchange
+# https://doc.libsodium.org/key_exchange
+
+type
+  CryptoKxPublicKey = string
+  CryptoKxSecretKey = string
+  CryptoKxRxKey = string
+  CryptoKxTxKey = string
+
+#TODO crypto_kx_seed_keypair
+
+proc crypto_kx_keypair(
+  pk: cptr,
+  sk: cptr
+): cint {.sodium_import.}
+
+proc crypto_kx_keypair*(): (CryptoKxPublicKey, CryptoKxSecretKey) =
+  result[0] = newString crypto_kx_PUBLICKEYBYTES()
+  result[1] = newString crypto_kx_SECRETKEYBYTES()
+  let
+    pk = cpt result[0]
+    sk = cpt result[1]
+  let rc = crypto_kx_keypair(pk, sk)
+  check_rc rc
+
+
+proc crypto_kx_client_session_keys(
+  rx: cptr,
+  tx: cptr,
+  client_pk: cptr,
+  client_sk: cptr,
+  server_pk: cptr,
+): cint {.sodium_import.}
+
+proc crypto_kx_client_session_keys*(client_pk, client_sk, server_pk: string): (
+    CryptoKxRxKey, CryptoKxTxKey) =
+  ## Generate key exchange client keys
+  result[0] = newString crypto_kx_SESSIONKEYBYTES()
+  result[1] = newString crypto_kx_SESSIONKEYBYTES()
+  let
+    rx = cpt result[0]
+    tx = cpt result[1]
+    cpk = cpt client_pk
+    csk = cpt client_sk
+    spk = cpt server_pk
+    rc = crypto_kx_client_session_keys(rx, tx, cpk, csk, spk)
+  check_rc rc
+
+
+proc crypto_kx_server_session_keys(
+  rx: cptr,
+  tx: cptr,
+  server_pk: cptr,
+  server_sk: cptr,
+  client_pk: cptr,
+): cint {.sodium_import.}
+
+proc crypto_kx_server_session_keys*(server_pk, server_sk, client_pk: string): (
+    CryptoKxRxKey, CryptoKxTxKey) =
+  ## Generate key exchange server keys
+  result[0] = newString crypto_kx_SESSIONKEYBYTES()
+  result[1] = newString crypto_kx_SESSIONKEYBYTES()
+  let
+    rx = cpt result[0]
+    tx = cpt result[1]
+    spk = cpt server_pk
+    ssk = cpt server_sk
+    cpk = cpt client_pk
+    rc = crypto_kx_server_session_keys(rx, tx, spk, ssk, cpk)
+  check_rc rc
+
+
+# Advanced: Point*scalar multiplicaton
+# https://doc.libsodium.org/advanced/scalar_multiplication
 
 proc crypto_scalarmult_base(
-  q: ptr cuchar,
-  n: ptr cuchar,
-):cint {.sodium_import.}
+  q: cptr,
+  n: cptr,
+): cint {.sodium_import.}
 
 proc crypto_scalarmult_base*(secret_key: string): string =
   assert secret_key.len == crypto_scalarmult_SCALARBYTES()
@@ -920,10 +1184,10 @@ proc crypto_scalarmult_base*(secret_key: string): string =
 
 
 proc crypto_scalarmult(
-  q: ptr cuchar,
-  n: ptr cuchar,
-  p: ptr cuchar,
-):cint {.sodium_import.}
+  q: cptr,
+  n: cptr,
+  p: cptr,
+): cint {.sodium_import.}
 
 proc crypto_scalarmult*(secret_key, public_key: string): string =
   ## Compute a shared secret given a secret key and another user's public key.
@@ -933,21 +1197,22 @@ proc crypto_scalarmult*(secret_key, public_key: string): string =
   assert public_key.len == crypto_scalarmult_BYTES()
   result = newString crypto_scalarmult_BYTES()
   let
-    q = cpt result  # output
-    n = cpt secret_key  # secret key
-    p = cpt public_key  # public key
+    q = cpt result     # output
+    n = cpt secret_key # secret key
+    p = cpt public_key # public key
     rc = crypto_scalarmult(q, n, p)
   check_rc rc
 
-# Secret-key single-message authentication using Poly1305
-# https://download.libsodium.org/doc/advanced/poly1305.html
+
+# Advanced: One-time authentication using Poly1305
+# https://doc.libsodium.org/advanced/poly1305
 
 proc crypto_onetimeauth(
-  o: ptr cuchar,
-  msg: ptr cuchar,
+  o: cptr,
+  msg: cptr,
   msg_len: culonglong,
-  key: ptr cuchar
-):cint {.sodium_import.}
+  key: cptr
+): cint {.sodium_import.}
 
 proc crypto_onetimeauth*(message, key: string): string =
   ## One-time authentication using Poly1305
@@ -964,11 +1229,11 @@ proc crypto_onetimeauth*(message, key: string): string =
 
 
 proc crypto_onetimeauth_verify(
-  o: ptr cuchar,
-  msg: ptr cuchar,
+  o: cptr,
+  msg: cptr,
   msg_len: culonglong,
-  key: ptr cuchar
-):cint {.sodium_import.}
+  key: cptr
+): cint {.sodium_import.}
 
 proc crypto_onetimeauth_verify*(tok, message, key: string): bool =
   ## Verify onetimeauth
@@ -982,13 +1247,13 @@ proc crypto_onetimeauth_verify*(tok, message, key: string): bool =
     rc = crypto_onetimeauth_verify(o, msg, msg_len, k)
   return rc == 0
 
-# HMAC256
-
+# Advanced: HMAC-SHA-256
+# https://doc.libsodium.org/advanced/hmac-sha2
 proc crypto_auth_hmacsha256(
-  o: ptr cuchar,
-  i: ptr cuchar,
+  o: cptr,
+  i: cptr,
   inlen: culonglong,
-  k: ptr cuchar
+  k: cptr
 ): cint {.sodium_import.}
 
 proc crypto_auth_hmacsha256*(message, key: string): string =
@@ -1004,10 +1269,10 @@ proc crypto_auth_hmacsha256*(message, key: string): string =
   check_rc rc
 
 proc crypto_auth_hmacsha256_verify(
-  h: ptr cuchar,
-  i: ptr cuchar,
+  h: cptr,
+  i: cptr,
   inlen: culonglong,
-  k: ptr cuchar,
+  k: cptr,
 ): cint {.sodium_import.}
 
 proc crypto_auth_hmacsha256_verify*(mac, message, key: string): bool =
@@ -1024,21 +1289,21 @@ proc crypto_auth_hmacsha256_verify*(mac, message, key: string): bool =
   return rc == 0
 
 proc crypto_auth_hmacsha256_init(
-  state: ptr cuchar,
-  key: ptr cuchar,
+  state: cptr,
+  key: cptr,
   keylen: culonglong
 ): cint {.sodium_import.}
 
 proc crypto_auth_hmacsha256_update(
-  state: ptr cuchar,
-  data: ptr cuchar,
+  state: cptr,
+  data: cptr,
   data_len: culonglong
-):cint {.sodium_import.}
+): cint {.sodium_import.}
 
 proc crypto_auth_hmacsha256_final(
-  state: ptr cuchar,
-  output: ptr cuchar,
-):cint {.sodium_import.}
+  state: cptr,
+  output: cptr,
+): cint {.sodium_import.}
 
 type HMACSHA256State* = tuple
   state: string
@@ -1170,16 +1435,15 @@ proc finalize512*(self: HMACSHA512State): string =
     rc = crypto_auth_hmacsha512_final(s, h)
   check_rc rc
 
-# Stream ciphers
-
-# Salsa20
+# Advanced: Stream ciphers: Salsa20
+# https://doc.libsodium.org/advanced/stream_ciphers/salsa20
 
 proc crypto_stream_salsa20(
-  c: ptr cuchar,
+  c: cptr,
   clen: culonglong,
-  n: ptr cuchar,
-  k: ptr cuchar
-):cint {.sodium_import.}
+  n: cptr,
+  k: cptr
+): cint {.sodium_import.}
 
 proc crypto_stream_salsa20*(nonce, key: string, length: int): string =
   ## Salsa20 stream cypher.
@@ -1199,12 +1463,12 @@ proc crypto_stream_salsa20*(nonce, key: string, length: int): string =
 
 
 proc crypto_stream_salsa20_xor(
-  c: ptr cuchar,
-  m: ptr cuchar,
+  c: cptr,
+  m: cptr,
   mlen: culonglong,
-  n: ptr cuchar,
-  k: ptr cuchar
-):cint {.sodium_import.}
+  n: cptr,
+  k: cptr
+): cint {.sodium_import.}
 
 proc crypto_stream_salsa20_xor*(nonce, key, msg: string): string =
   ## encrypts `msg`.
@@ -1222,13 +1486,13 @@ proc crypto_stream_salsa20_xor*(nonce, key, msg: string): string =
 
 
 proc crypto_stream_salsa20_xor_ic(
-  c: ptr cuchar,
-  m: ptr cuchar,
+  c: cptr,
+  m: cptr,
   mlen: culonglong,
-  n: ptr cuchar,
+  n: cptr,
   ic: uint64,
-  k: ptr cuchar
-):cint {.sodium_import.}
+  k: cptr
+): cint {.sodium_import.}
 
 proc crypto_stream_salsa20_xor_ic*(nonce, key, msg: string, ic: uint): string =
   ## encrypts `msg`.
@@ -1247,7 +1511,7 @@ proc crypto_stream_salsa20_xor_ic*(nonce, key, msg: string, ic: uint): string =
 
 
 proc crypto_stream_salsa20_keygen(
-  k: ptr cuchar,
+  k: cptr,
 ) {.sodium_import.}
 
 proc crypto_stream_salsa20_keygen*(): string =
@@ -1257,14 +1521,15 @@ proc crypto_stream_salsa20_keygen*(): string =
   crypto_stream_salsa20_keygen(o)
 
 
-# XSalsa20
+# Advanced: Stream ciphers: XSalsa20
+# https://doc.libsodium.org/advanced/stream_ciphers/xsalsa20
 
 proc crypto_stream(
-  c: ptr cuchar,
+  c: cptr,
   clen: culonglong,
-  n: ptr cuchar,
-  k: ptr cuchar
-):cint {.sodium_import.}
+  n: cptr,
+  k: cptr
+): cint {.sodium_import.}
 
 proc crypto_stream*(nonce, key: string, length: int): string =
   ## XSalsa20 stream cypher.
@@ -1284,12 +1549,12 @@ proc crypto_stream*(nonce, key: string, length: int): string =
 
 
 proc crypto_stream_xor(
-  c: ptr cuchar,
-  m: ptr cuchar,
+  c: cptr,
+  m: cptr,
   mlen: culonglong,
-  n: ptr cuchar,
-  k: ptr cuchar
-):cint {.sodium_import.}
+  n: cptr,
+  k: cptr
+): cint {.sodium_import.}
 
 proc crypto_stream_xor*(nonce, key, msg: string): string =
   ## encrypts `msg` using XSalsa20.
@@ -1307,7 +1572,7 @@ proc crypto_stream_xor*(nonce, key, msg: string): string =
 
 
 proc crypto_stream_keygen(
-  k: ptr cuchar,
+  k: cptr,
 ) {.sodium_import.}
 
 proc crypto_stream_keygen*(): string =
@@ -1316,207 +1581,3 @@ proc crypto_stream_keygen*(): string =
   result = newString crypto_stream_salsa20_KEYBYTES()
   let o = cpt result
   crypto_stream_keygen(o)
-
-# Key exchange
-# https://download.libsodium.org/doc/key_exchange.html
-
-type
-  CryptoKxPublicKey = string
-  CryptoKxSecretKey = string
-  CryptoKxRxKey = string
-  CryptoKxTxKey = string
-
-#TODO crypto_kx_seed_keypair
-
-proc crypto_kx_keypair(
-  pk: ptr cuchar,
-  sk: ptr cuchar
-):cint {.sodium_import.}
-
-proc crypto_kx_keypair*(): (CryptoKxPublicKey, CryptoKxSecretKey) =
-  result[0] = newString crypto_kx_PUBLICKEYBYTES()
-  result[1] = newString crypto_kx_SECRETKEYBYTES()
-  let
-    pk = cpt result[0]
-    sk = cpt result[1]
-  let rc = crypto_kx_keypair(pk, sk)
-  check_rc rc
-
-
-proc crypto_kx_client_session_keys(
-  rx: ptr cuchar,
-  tx: ptr cuchar,
-  client_pk: ptr cuchar,
-  client_sk: ptr cuchar,
-  server_pk: ptr cuchar,
-):cint {.sodium_import.}
-
-proc crypto_kx_client_session_keys*(client_pk, client_sk, server_pk: string): (CryptoKxRxKey, CryptoKxTxKey) =
-  ## Generate key exchange client keys
-  result[0] = newString crypto_kx_SESSIONKEYBYTES()
-  result[1] = newString crypto_kx_SESSIONKEYBYTES()
-  let
-    rx = cpt result[0]
-    tx = cpt result[1]
-    cpk = cpt client_pk
-    csk = cpt client_sk
-    spk = cpt server_pk
-    rc = crypto_kx_client_session_keys(rx, tx, cpk, csk, spk)
-  check_rc rc
-
-
-proc crypto_kx_server_session_keys(
-  rx: ptr cuchar,
-  tx: ptr cuchar,
-  server_pk: ptr cuchar,
-  server_sk: ptr cuchar,
-  client_pk: ptr cuchar,
-):cint {.sodium_import.}
-
-proc crypto_kx_server_session_keys*(server_pk, server_sk, client_pk: string): (CryptoKxRxKey, CryptoKxTxKey) =
-  ## Generate key exchange server keys
-  result[0] = newString crypto_kx_SESSIONKEYBYTES()
-  result[1] = newString crypto_kx_SESSIONKEYBYTES()
-  let
-    rx = cpt result[0]
-    tx = cpt result[1]
-    spk = cpt server_pk
-    ssk = cpt server_sk
-    cpk = cpt client_pk
-    rc = crypto_kx_server_session_keys(rx, tx, spk, ssk, cpk)
-  check_rc rc
-
-
-# Secret stream
-# https://download.libsodium.org/doc/secret-key_cryptography/secretstream
-
-type
-  SecretStreamXChaCha20Poly1305Key* = string
-  SecretStreamXChaCha20Poly1305Header* = string
-  SecretStreamXChaCha20Poly1305PushState* = tuple
-    state: string
-  SecretStreamXChaCha20Poly1305PullState* = tuple
-    state: string
-
-proc crypto_secretstream_xchacha20poly1305_keygen(
-  key: ptr cuchar,
-) {.sodium_import.}
-
-proc crypto_secretstream_xchacha20poly1305_keygen*(): SecretStreamXChaCha20Poly1305Key =
-  # Generate a key for secretstream functions
-  result = newString crypto_secretstream_xchacha20poly1305_KEYBYTES()
-  let
-    o = cpt result
-  crypto_secretstream_xchacha20poly1305_keygen(o)
-
-proc crypto_secretstream_xchacha20poly1305_tag_message*():cuchar {.sodium_import.}
-proc crypto_secretstream_xchacha20poly1305_tag_push*():cuchar {.sodium_import.}
-proc crypto_secretstream_xchacha20poly1305_tag_rekey*():cuchar {.sodium_import.}
-proc crypto_secretstream_xchacha20poly1305_tag_final*():cuchar {.sodium_import.}
-  
-
-proc crypto_secretstream_xchacha20poly1305_init_push(
-  state: ptr cuchar,
-  header: ptr cuchar,
-  key: ptr cuchar,
-):cint {.sodium_import.}
-
-proc crypto_secretstream_xchacha20poly1305_init_push*(key: SecretStreamXChaCha20Poly1305Key): (SecretStreamXChaCha20Poly1305PushState, SecretStreamXChaCha20Poly1305Header) =
-  ## Initialize encryption for a secret stream
-  let
-    state = (state: newString crypto_secretstream_xchacha20poly1305_statebytes(),)
-    header = newString crypto_secretstream_xchacha20poly1305_headerbytes()
-    c_state = cpt state.state
-    c_header = cpt header
-    k =
-      if key == "": nil
-      else: cpt key
-    rc = crypto_secretstream_xchacha20poly1305_init_push(c_state, c_header, k)
-  result = (state, header)
-  check_rc rc
-
-proc crypto_secretstream_xchacha20poly1305_init_pull(
-  state: ptr cuchar,
-  header: ptr cuchar,
-  key: ptr cuchar,
-):cint {.sodium_import.}
-
-proc crypto_secretstream_xchacha20poly1305_init_pull*(header: SecretStreamXChaCha20Poly1305Header, key: SecretStreamXChaCha20Poly1305Key): SecretStreamXChaCha20Poly1305PullState =
-  ## Initialize decryption for a secret stream
-  let
-    state = (state: newString crypto_secretstream_xchacha20poly1305_statebytes(),)
-    c_state = cpt state.state
-    c_header = cpt header
-    k =
-      if key == "": nil
-      else: cpt key
-    rc = crypto_secretstream_xchacha20poly1305_init_pull(c_state, c_header, k)
-  result = state
-  check_rc rc
-
-proc crypto_secretstream_xchacha20poly1305_push(
-  state: ptr cuchar,
-  outs: ptr cuchar,
-  outlen_p: ptr culonglong,
-  m: ptr cuchar,
-  mlen: culonglong,
-  ad: ptr cuchar,
-  adlen: culonglong,
-  tag: cuchar,
-):cint {.sodium_import.}
-
-proc push*(state: SecretStreamXChaCha20Poly1305PushState, msg, ad: string, tag: cuchar):string =
-  ## Perform crypto_secretstream_xchacha20poly1305_push
-  result = newString(msg.len + crypto_secretstream_xchacha20poly1305_ABYTES())
-  let
-    c_state = cpt state.state
-    cipher = cpt result
-    m = cpt msg
-    mlen = culen msg
-    c_ad = cpt ad
-    c_adlen = culen ad
-    rc = crypto_secretstream_xchacha20poly1305_push(
-      c_state,
-      cipher,
-      nil,
-      m,
-      mlen,
-      c_ad,
-      c_adlen,
-      tag,
-    )
-  check_rc rc
-
-
-proc crypto_secretstream_xchacha20poly1305_pull(
-  state: ptr cuchar,
-  m: ptr cuchar,
-  mlen_p: ptr culonglong,
-  tag_p: ptr cuchar,
-  ins: ptr cuchar,
-  inlen: culonglong,
-  ad: ptr cuchar,
-  adlen: culonglong,
-):cint {.sodium_import.}
-
-proc pull*(state: SecretStreamXChaCha20Poly1305PullState, cipher, ad: string): (string, cuchar) =
-  ## Perform crypto_secretstream_xchacha20poly1305_pull
-  result[0] = newString(cipher.len - crypto_secretstream_xchacha20poly1305_ABYTES())
-  let
-    c_state = cpt state.state
-    m = cpt result[0]
-    c_in = cpt cipher
-    c_inlen = culen cipher
-    c_ad = cpt ad
-    c_adlen = culen ad
-    rc = crypto_secretstream_xchacha20poly1305_pull(
-      c_state,
-      m,
-      nil,
-      result[1].unsafeAddr,
-      c_in,
-      c_inlen,
-      c_ad,
-      c_adlen,
-    )
-  check_rc rc
