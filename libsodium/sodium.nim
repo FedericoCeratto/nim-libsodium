@@ -889,7 +889,7 @@ proc finalize*(self: GenericHash): string =
     h_len = csize_t self.out_len
     rc = crypto_generichash_final(s, h, h_len)
   check_rc rc
-  assert h.len == self.out_len
+  assert cstring(h).len == self.out_len
 
 
 # Short-input hashing
