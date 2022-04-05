@@ -1341,6 +1341,99 @@ proc finalize*(self: HMACSHA256State): string =
     rc = crypto_auth_hmacsha256_final(s, h)
   check_rc rc
 
+# HMAC512
+
+proc crypto_auth_hmacsha512(
+  o: ptr char,
+  i: ptr char,
+  inlen: culonglong,
+  k: ptr char
+): cint {.sodium_import.}
+
+proc crypto_auth_hmacsha512*(message, key: string): string =
+  ## HMAC SHA512
+  assert key.len == crypto_auth_hmacsha512_keybytes()
+  result = newString crypto_auth_hmacsha512_bytes()
+  let
+    o = cpt result
+    msg = cpt message
+    msg_len = culen message
+    k = cpt key
+    rc = crypto_auth_hmacsha512(o, msg, msg_len, k)
+  check_rc rc
+
+proc crypto_auth_hmacsha512_verify(
+  h: ptr char,
+  i: ptr char,
+  inlen: culonglong,
+  k: ptr char,
+): cint {.sodium_import.}
+
+proc crypto_auth_hmacsha512_verify*(mac, message, key: string): bool =
+  ## HMAC SHA512 verification
+  assert mac.len == crypto_auth_hmacsha512_bytes()
+  assert key.len == crypto_auth_hmacsha512_keybytes()
+  let
+    tag = cpt mac
+    msg = cpt message
+    msg_len = culen message
+    k = cpt key
+    rc = crypto_auth_hmacsha512_verify(tag, msg, msg_len, k)
+
+  return rc == 0
+
+proc crypto_auth_hmacsha512_init(
+  state: ptr char,
+  key: ptr char,
+  keylen: culonglong
+): cint {.sodium_import.}
+
+proc crypto_auth_hmacsha512_update(
+  state: ptr char,
+  data: ptr char,
+  data_len: culonglong
+):cint {.sodium_import.}
+
+proc crypto_auth_hmacsha512_final(
+  state: ptr char,
+  output: ptr char,
+):cint {.sodium_import.}
+
+type HMACSHA512State* = tuple
+  state: string
+
+proc new_crypto_auth_hmacsha512*(key: string): HMACSHA512State =
+  ## Create multipart SHA512 HMAC
+  ## Create a new multipart hash, returns a HMACSHA512State
+  ## The HMACSHA512State is to be updated with .update512()
+  ## Upon calling .finalize512() on it it will return a hash value
+  result.state = newString crypto_auth_hmacsha512_statebytes()
+  let
+    state = cpt result.state
+    k =
+      if key == "": nil
+      else: cpt key
+    klen = culen key
+    rc = crypto_auth_hmacsha512_init(state, k, klen)
+  check_rc rc
+
+proc update512*(self: HMACSHA512State, data: string) =
+  ## Update the multipart hash with more data
+  let
+    s = cpt self.state
+    d = cpt data
+    d_len = culen data
+    rc = crypto_auth_hmacsha512_update(s, d, d_len)
+  check_rc rc
+
+proc finalize512*(self: HMACSHA512State): string =
+  ## Finish the multipart hash and return the hash value as a string
+  result = newString crypto_auth_hmacsha512_bytes()
+  let
+    s = cpt self.state
+    h = cpt result
+    rc = crypto_auth_hmacsha512_final(s, h)
+  check_rc rc
 
 
 # Advanced: Stream ciphers: Salsa20
